@@ -1,0 +1,29 @@
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Java / frontend / Python output
+**/target/
+**/node_modules/
+**/dist/
+**/build/
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+*.pyc
+
+# Terraform local state and overrides
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Local editor / OS files
+.DS_Store
+.idea/
+.vscode/
+*.log
