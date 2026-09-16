@@ -33,3 +33,19 @@ Redis can help with something like rate limiting or disposable caching later. It
 ## Fake data only
 
 Stripe will use test/sandbox credentials and Plaid will use Sandbox. Secrets stay out of Git and logs. AWS is optional: I'll get the app working locally, estimate costs, and get explicit approval before creating paid resources.
+
+## Backend setup choices
+
+I chose Spring Boot 3.5.16 for the requested JUnit 5 stack and familiar Spring MVC/JPA setup. It's a stable 3.5 release; newer Boot major versions are available, so this is a deliberate compatibility choice rather than a claim to use the latest major. springdoc 2.8.17 documents this Boot 3 backend. Maven 3.9.16 and PostgreSQL 17.10 are pinned.
+
+References: [Boot 3.5 requirements](https://docs.spring.io/spring-boot/3.5/system-requirements.html), [springdoc Boot 3 documentation](https://springdoc.org/v2/).
+
+Flyway owns schema changes; Hibernate validates mapped entities. The first migration only creates the `ledgerflow` schema, so no business tables are implied. I disabled Open Session in View to keep future database access in explicit application transactions.
+
+API errors use Spring ProblemDetail, with an HTTP code and a list of field errors for validation. I preserve framework response headers such as Allow, and replace internal error details with safe messages. Authentication and its error handling are still to build.
+
+The greeting endpoint is a temporary, stateless way to test the foundation. It doesn't belong to a financial domain and doesn't save data. Business code will be added by domain as those features are built.
+
+PostgreSQL integration tests run in Failsafe during `verify` using Testcontainers. They're required and fail without Docker. Spotless checks Java formatting during validation. Local API/database ports are 18080/55432 because another project was already using 8080/5432. Both listen on localhost, and API docs are enabled only in local/test profiles.
+
+Flyway's history is explicitly kept in `public`, while business tables will live in `ledgerflow`. PostgreSQL's default search path can change when a schema matches the login username; leaving history placement implicit caused a second startup to try the first migration again. A fresh-connection regression test now uses the local database username to cover that case.

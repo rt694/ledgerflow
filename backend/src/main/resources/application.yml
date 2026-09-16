@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: ledgerflow
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: ledgerflow
+  flyway:
+    enabled: true
+    # Keep history stable when the application schema matches the database username.
+    default-schema: public
+server:
+  port: ${SERVER_PORT:8080}
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

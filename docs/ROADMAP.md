@@ -1,6 +1,6 @@
 # Build checklist
 
-I'm working through this in small pieces so I can understand and test each part before moving on. Planning is done; everything else below is still to build.
+I'm working through this in small pieces so I can understand and test each part before moving on. Planning and backend setup are done. Users and organizations are next; the other features are still to build.
 
 I'll keep the setup notes, progress, and decisions updated as the code changes. There aren't any delivery dates yet.
 

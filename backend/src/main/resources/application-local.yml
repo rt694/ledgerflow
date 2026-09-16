@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:55432/ledgerflow}
+    username: ${SPRING_DATASOURCE_USERNAME:ledgerflow}
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+server:
+  port: ${SERVER_PORT:18080}

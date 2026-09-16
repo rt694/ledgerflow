@@ -2,7 +2,7 @@
 
 I'm building LedgerFlow to learn how payments, invoices, and bank reconciliation fit together. The idea is a small-business app where I can create invoices, simulate payments, and track the money in a double-entry ledger.
 
-It's still in the planning stage. There's no working app yet; the backend setup is next.
+The backend foundation now runs locally: PostgreSQL, migrations, health checks, API docs, and a small endpoint for trying validation. Users, invoices, and financial features are still to build.
 
 ## What I'm using
 
@@ -42,6 +42,34 @@ git clone https://github.com/rt694/ledgerflow.git
 cd ledgerflow
 ```
 
-For now, there's only documentation. Before building the backend, I need Java 21. The Maven Wrapper and a PostgreSQL Compose setup will be added with the backend, so a global Maven installation and a native PostgreSQL server won't be required.
+You'll need Java 21 and a running Docker daemon. Maven is downloaded through the wrapper, and PostgreSQL runs in Docker Compose.
 
-The [local setup notes](docs/LOCAL_DEVELOPMENT.md) separate commands that work now from commands planned for the app. So far, I've checked the local tools and documentation links; there aren't any application tests or performance results yet.
+From the repository root, create your local settings and start the database:
+
+```sh
+cp .env.example .env
+# Replace the password placeholder in .env before continuing.
+docker compose up -d --wait postgres
+```
+
+Follow [local setup](docs/LOCAL_DEVELOPMENT.md) to select Java 21, load the database settings, run tests, and start the backend. The local API uses port **18080** and PostgreSQL uses **55432** so they can sit alongside other projects.
+
+Once the app is running:
+
+- Health: `http://localhost:18080/actuator/health`
+- Swagger UI: `http://localhost:18080/swagger-ui/index.html`
+- OpenAPI: `http://localhost:18080/v3/api-docs`
+
+Authentication is next. For now, the app listens on localhost and the example endpoint saves nothing.
+
+## Checking the backend
+
+From `backend/`, with Java 21 selected and Docker running:
+
+```sh
+./mvnw verify
+```
+
+This checks Java formatting, compiles the app, runs 9 focused tests, packages an executable JAR, and runs 5 integration tests against isolated PostgreSQL through Testcontainers. Integration tests fail if Docker is unavailable rather than silently skipping.
+
+See the [setup notes](docs/LOCAL_DEVELOPMENT.md) for requests you can try by hand. These tests aren't performance measurements; there are no latency or throughput claims yet.
