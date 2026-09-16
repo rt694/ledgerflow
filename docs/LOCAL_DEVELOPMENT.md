@@ -4,19 +4,19 @@
 
 | Tool | Observed | Needed |
 | --- | --- | --- |
-| Java / javac | Temurin 17.0.20.1 active | ARM64 JDK 21 before Milestone 1 |
-| Maven / Gradle | Neither on PATH | Maven Wrapper generated in Milestone 1; Gradle unnecessary |
-| Node.js / npm | 24.20.0 / 11.19.0 | Frontend tooling in Milestone 9 |
-| Docker client / daemon | Both 29.7.2; daemon responds | PostgreSQL and Testcontainers from Milestone 1 |
-| Docker Compose | v5.5.0 | Local infrastructure from Milestone 1 |
+| Java / javac | Temurin 17.0.20.1 active | ARM64 JDK 21 before backend setup |
+| Maven / Gradle | Neither on PATH | Maven Wrapper added with the backend; Gradle unnecessary |
+| Node.js / npm | 24.20.0 / 11.19.0 | Frontend tooling when building the frontend |
+| Docker client / daemon | Both 29.7.2; daemon responds | PostgreSQL and Testcontainers for backend setup |
+| Docker Compose | v5.5.0 | Local infrastructure for backend setup |
 | Git | 2.39.3 | Version control; durable checkout now established |
 | PostgreSQL tooling | `psql`, `pg_isready` absent | Use utilities inside PostgreSQL container; host install optional |
-| Python | 3.12.14 | FastAPI and pytest in Milestone 10; packages not checked yet |
-| Terraform | Absent from PATH | Milestone 12 only |
+| Python | 3.12.14 | FastAPI and pytest when adding analytics; packages not checked yet |
+| Terraform | Absent from PATH | only if deploying to AWS |
 
 Host architecture is ARM64. macOS Java discovery also lists an older x86_64 Java 17 installation, so its default selection is unsuitable for the required Java 21 setup. Installed Node 24 belongs to the LTS line ([release schedule](https://nodejs.org/en/about/previous-releases)); frontend dependencies will be pinned later.
 
-Optional future tools: an IDE with Java support, Stripe CLI for local webhook forwarding in Milestone 5, and AWS CLI in Milestone 12. Sandbox accounts are needed only at the integration milestones. No cloud account is needed now.
+Optional future tools: an IDE with Java support, Stripe CLI for local webhook forwarding when testing payments, and AWS CLI if deploying to AWS. Sandbox accounts are needed only when adding the integrations. No cloud account is needed now.
 
 ## Commands available now
 
@@ -50,7 +50,7 @@ javac -version
 
 Both versions must report 21. This selection command currently cannot succeed because no registered Java 21 installation was found. A manually installed JDK requires setting JAVA_HOME to its actual home directory.
 
-## Commands planned for Milestone 1
+## Commands for the future backend
 
 These commands will work only after the backend, wrapper, Compose file, environment template, and migrations are created. `LEDGERFLOW_DIR` means the chosen durable checkout's absolute path.
 
@@ -78,7 +78,7 @@ cd "$LEDGERFLOW_DIR/backend"
 
 The wrapper downloads the pinned Maven version on first use; dependency downloads require network access. `verify` must include required integration tests rather than leaving them silently skipped. Testcontainers needs the running Docker daemon and supplies isolated test PostgreSQL instances.
 
-Once Milestone 1 starts the app, run from any directory:
+Once the backend is running, run from any directory:
 
 ```sh
 curl -i http://localhost:8080/actuator/health
@@ -89,7 +89,7 @@ Expected future behavior: health responds successfully with UP, OpenAPI returns 
 
 Stop future local infrastructure from the repository root with `docker compose down`. This preserves database volumes. Reset procedures that destroy data must be documented separately before use.
 
-## Milestone 0 interview questions
+## Questions I want to be able to answer
 
 1. Why does one database transaction simplify coordinating invoices and ledger posting?
 2. How can a modular monolith become tightly coupled, and how will domain APIs prevent that?

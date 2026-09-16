@@ -1,44 +1,47 @@
 # LedgerFlow
 
-LedgerFlow is a planned small-business payments and reconciliation portfolio project. It will use simulated Stripe payments and Plaid bank accounts, an auditable double-entry ledger, and explainable reconciliation rules.
+I'm building LedgerFlow to learn how payments, invoices, and bank reconciliation fit together. The idea is a small-business app where I can create invoices, simulate payments, and track the money in a double-entry ledger.
 
-**Current state: Milestone 0 planning complete. No application has been implemented.**
+It's still in the planning stage. There's no working app yet; the backend setup is next.
 
-All financial data must be synthetic. Stripe must use test/sandbox credentials; Plaid must use Sandbox. No real money, bank credentials, or customer financial data are permitted. AWS resources require explicit approval after costs are explained.
+## What I'm using
 
-## Architecture and stack
+- Java 21, Spring Boot, and Maven for the backend
+- PostgreSQL and Flyway for the database
+- React and TypeScript for the frontend
+- Stripe and Plaid sandboxes for simulated payments and bank data
+- Kafka for background events, and Python/FastAPI for later analytics
+- Docker Compose for local development
 
-Start with a Java 21 / Spring Boot modular monolith, organized by domain, backed by PostgreSQL and Flyway. Use Maven with a pinned Maven Wrapper. Add React/TypeScript, Kafka, Redis, Python/FastAPI, observability, and Terraform only at the milestones where they serve a concrete purpose.
+I'm starting with one backend organized by business domain. That lets me learn the financial workflows without managing a bunch of services right away. Redis, monitoring tools, and Terraform can come later when there's a reason to add them.
 
-A single application and database make atomic business and ledger updates practical. Domain APIs and ownership boundaries keep future extraction possible without introducing distributed transactions now.
+## What I want to build
 
-## Planning documents
+- Users, organizations, customers, and invoices
+- Simulated payments and bank connections
+- A balanced, auditable ledger with reversals for corrections
+- Rules for matching transactions and a queue for reviewing unclear matches
+- A dashboard showing invoices, balances, and reconciliation results
 
-- [Architecture and proposed structure](docs/ARCHITECTURE.md)
-- [Environment findings and local commands](docs/LOCAL_DEVELOPMENT.md)
-- [Milestones and acceptance gates](docs/MILESTONES.md)
-- [Project status](PROJECT_STATUS.md)
-- [Architectural decisions](DECISIONS.md)
+Everything will use fake data and sandbox accounts. This project won't handle real money or real bank credentials. Any AWS deployment comes later, after checking costs.
+
+## Project notes
+
+- [Build checklist](docs/ROADMAP.md)
+- [Architecture sketch](docs/ARCHITECTURE.md)
+- [Local setup](docs/LOCAL_DEVELOPMENT.md)
+- [Progress](PROJECT_STATUS.md)
+- [Why I chose this approach](DECISIONS.md)
 
 ## Getting started
 
-Clone this public repository into a local development directory:
+Run these from the directory where you want to keep the project:
 
 ```sh
 git clone https://github.com/rt694/ledgerflow.git
 cd ledgerflow
 ```
 
-This repository contains planning documents only. Backend generation begins in Milestone 1.
+For now, there's only documentation. Before building the backend, I need Java 21. The Maven Wrapper and a PostgreSQL Compose setup will be added with the backend, so a global Maven installation and a native PostgreSQL server won't be required.
 
-Java 21 is the next environment prerequisite; the active JDK is currently Java 17. Docker is running. No global Maven installation is required once Milestone 1 adds the wrapper. PostgreSQL will run through Docker Compose; installing a native database server is unnecessary.
-
-Use the directory-specific commands in [LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md). Application, Compose, and test commands there are explicitly marked as future commands until their files exist.
-
-## Verification
-
-Milestone 0 verification consists of inspecting installed tools, confirming the Docker daemon responds, and checking planning document consistency and links. There is no source code to compile, format, or test yet. No performance claims or measured results exist.
-
-Suggested initial branch: `docs/milestone-0-planning`.
-
-Suggested commit message: `docs: define LedgerFlow architecture and milestone plan`.
+The [local setup notes](docs/LOCAL_DEVELOPMENT.md) separate commands that work now from commands planned for the app. So far, I've checked the local tools and documentation links; there aren't any application tests or performance results yet.
