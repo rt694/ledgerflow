@@ -1,6 +1,6 @@
 # Architecture sketch
 
-This is the starting design. The components below haven't been built yet.
+The backend foundation is in place. The business domains, frontend, provider integrations, and background processing below are still planned.
 
 ## Runtime shape
 
@@ -34,7 +34,7 @@ The outbox later solves the database/Kafka dual-write gap: commit business state
 
 ## Proposed repository structure
 
-Only planning documents exist now. I’ll add the other directories as I build each part.
+The backend, Compose configuration, and environment template now exist. The domain folders and other services below are planned; I'll add them as I build each part.
 
 ```text
 ledgerflow/
