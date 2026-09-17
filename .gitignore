@@ -27,3 +27,6 @@
 .idea/
 .vscode/
 *.log
+
+# Local JWT signing keys and other runtime-only files
+.local/

@@ -8,7 +8,7 @@ I'm starting with a modular monolith: one Spring Boot app, with packages organiz
 
 ## Java 21 and Maven
 
-Maven's standard layout and build lifecycle are enough for this project. A pinned Maven Wrapper will make the build tool consistent across machines, though Java still needs to be installed separately. I'll choose compatible stable Spring Boot and library versions when setting up the backend.
+Maven's standard layout and build lifecycle are enough for this project. A pinned Maven Wrapper will make the build tool consistent across machines, though Java still needs to be installed separately. The pinned backend versions are recorded below.
 
 References: [Spring Boot requirements](https://docs.spring.io/spring-boot/system-requirements.html), [Maven Wrapper](https://maven.apache.org/tools/wrapper/).
 
@@ -40,12 +40,34 @@ I chose Spring Boot 3.5.16 for the requested JUnit 5 stack and familiar Spring M
 
 References: [Boot 3.5 requirements](https://docs.spring.io/spring-boot/3.5/system-requirements.html), [springdoc Boot 3 documentation](https://springdoc.org/v2/).
 
-Flyway owns schema changes; Hibernate validates mapped entities. The first migration only creates the `ledgerflow` schema, so no business tables are implied. I disabled Open Session in View to keep future database access in explicit application transactions.
+Flyway owns schema changes; Hibernate validates mapped entities. The first migration creates the `ledgerflow` schema; the two later migrations add identity, organization, customer, and invoice tables. I disabled Open Session in View to keep future database access in explicit application transactions.
 
-API errors use Spring ProblemDetail, with an HTTP code and a list of field errors for validation. I preserve framework response headers such as Allow, and replace internal error details with safe messages. Authentication and its error handling are still to build.
+API errors use Spring ProblemDetail, with an HTTP code and a list of field errors for validation. I preserve framework response headers such as Allow, and replace internal error details with safe messages. Authentication now uses the same Problem Details format, including errors returned by the security filter.
 
 The greeting endpoint is a temporary, stateless way to test the foundation. It doesn't belong to a financial domain and doesn't save data. Business code will be added by domain as those features are built.
 
 PostgreSQL integration tests run in Failsafe during `verify` using Testcontainers. They're required and fail without Docker. Spotless checks Java formatting during validation. Local API/database ports are 18080/55432 because another project was already using 8080/5432. Both listen on localhost, and API docs are enabled only in local/test profiles.
 
 Flyway's history is explicitly kept in `public`, while business tables will live in `ledgerflow`. PostgreSQL's default search path can change when a schema matches the login username; leaving history placement implicit caused a second startup to try the first migration again. A fresh-connection regression test now uses the local database username to cover that case.
+
+## Users, organizations, and invoices
+
+I used Spring Security's resource-server JWT support instead of writing a token filter. Local RSA keys are generated once and stay outside Git. Tokens use RS256, a UUID user subject, the expected issuer/audience, and a 15-minute lifetime. The decoder checks the signature, time bounds, and required claims. Refresh tokens, server-side logout, and key rotation are future work.
+
+References: [Spring Security JWT validation](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html), [password storage](https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html), [CSRF considerations](https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html).
+
+Passwords use salted BCrypt with cost 12. The API checks the 72-byte UTF-8 limit explicitly, so Unicode passwords aren't silently truncated. An unknown login still compares against a dummy hash, and known/unknown users get the same bad-credential response.
+
+JWTs identify users without embedding organization roles. Every organization workflow checks current database membership. Owners manage memberships; employees manage customers and draft invoices; accountants can read customers and manage invoices; owners/accountants can issue and void. A user can have different roles in different organizations. Nonmembers get 404, while members lacking a required role get 403.
+
+The API accepts explicit Authorization bearer headers and doesn't authenticate through cookies, sessions, or HTTP Basic. That's why CSRF protection is disabled here; statelessness alone wouldn't justify disabling it for an app using browser-supplied credentials.
+
+Creating an organization and its owner membership is one database transaction. Membership changes lock the organization row before checking the owner count, preventing two concurrent demotions from removing the last owner.
+
+Entities and repositories stay package-private. Other domains use UserDirectory, OrganizationAccess, and CustomerDirectory rather than another domain's repository. Tenant records are queried by organization and ID together. Composite foreign keys also prevent cross-organization customer/invoice and invoice/line associations at the database level.
+
+Invoices support USD for now, integer quantities, two-place prices, and fractional tax rates with up to four places. Tax rounds HALF_UP per line and is then summed. This is a documented project rule, not a claim to implement every jurisdiction's tax policy. Issued invoices copy customer details and reject content edits; VOID is terminal. The ledger and payment-backed transitions don't exist yet.
+
+Customer/invoice writes use a scoped pessimistic row lock and an explicit, monotonic version checked under that lock. The version is managed by the aggregate rather than JPA's @Version. This serializes writes and reliably rejects stale content, including line-only edits. Invoice line positions use a deferred unique constraint so JPA can replace lines in a single transaction without an intermediate duplicate-position failure. Conflict/rollback and concurrency tests use real PostgreSQL.
+
+Hibernate's value-bearing SQL exception logger is disabled because constraint messages can include submitted emails or invoice references. The API returns deliberate safe messages. The current tests aren't performance measurements.

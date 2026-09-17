@@ -46,6 +46,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     return new ResponseEntity<>(problem(status, safeMessage(status), request), headers, status);
   }
 
+  @ExceptionHandler(BusinessException.class)
+  public ResponseEntity<Object> handleBusiness(BusinessException exception, WebRequest request) {
+    var body = problem(exception.status(), exception.getMessage(), request);
+    body.setProperty("code", exception.code());
+    return new ResponseEntity<>(body, exception.status());
+  }
+
+  @ExceptionHandler({
+    org.springframework.dao.DataIntegrityViolationException.class,
+    org.springframework.orm.ObjectOptimisticLockingFailureException.class
+  })
+  public ResponseEntity<Object> handleConflict(Exception exception, WebRequest request) {
+    var status = HttpStatus.CONFLICT;
+    return new ResponseEntity<>(
+        problem(status, "The change conflicts with existing data. Reload and try again.", request),
+        status);
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Object> handleUnexpected(Exception exception, WebRequest request) {
     // Log only the exception class; messages can contain credentials or submitted data.

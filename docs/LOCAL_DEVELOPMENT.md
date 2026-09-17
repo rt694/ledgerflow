@@ -6,7 +6,7 @@
 - A running Docker daemon and Docker Compose
 - Git
 
-Maven comes through the wrapper. PostgreSQL runs in a container, so you don't need a host installation. Node, Python, and Terraform aren't required to run this backend.
+OpenSSL is needed once to generate your local JWT signing keys. Python 3 is optional for the smoke-check script. Maven comes through the wrapper. PostgreSQL runs in a container, so you don't need a host installation. Node and Terraform aren't required to run this backend.
 
 The backend uses Spring Boot 3.5.16, Maven 3.9.16, springdoc 2.8.17, and PostgreSQL 17.10. Java 21 is enforced at build time. Maven's download checksum is pinned too.
 
@@ -50,6 +50,16 @@ docker compose exec postgres pg_isready -U ledgerflow -d ledgerflow
 
 The database is `ledgerflow`, the user is `ledgerflow`, and the host port defaults to 55432. The port and password come from `.env`. Data is stored in a named volume.
 
+## Generate local signing keys
+
+From the repository root, run once:
+
+```sh
+./scripts/generate-local-keys.sh
+```
+
+This creates an RSA key pair in ignored `.local/` with restricted local permissions and never overwrites an existing pair. Keep both keys together. They're used to sign/verify local JWTs and must not be committed. Tests generate a separate, temporary key pair automatically.
+
 ## Run tests
 
 From `ledgerflow/backend/`, with Java 21 selected and Docker running:
@@ -80,13 +90,15 @@ set +a
 export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:${POSTGRES_PORT:-55432}/ledgerflow"
 export SPRING_DATASOURCE_USERNAME=ledgerflow
 export SPRING_DATASOURCE_PASSWORD="$POSTGRES_PASSWORD"
+export JWT_PRIVATE_KEY_PATH="$PWD/.local/jwt-private.pem"
+export JWT_PUBLIC_KEY_PATH="$PWD/.local/jwt-public.pem"
 cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 The local API listens on `127.0.0.1:18080`. Set SERVER_PORT if you need another port. The default profile requires explicit database settings and keeps API docs disabled; the `local` profile supplies local connection defaults and enables Swagger UI.
 
-Flyway applies migrations before JPA starts and keeps its history in `public` so the schema search path cannot move it between restarts. Hibernate validates mapped tables and never creates or updates them. There aren't any business entities yet; the first migration creates the application schema. Open Session in View is disabled so later database work stays in the application transaction boundary.
+Flyway applies migrations before JPA starts and keeps its history in `public` so the schema search path cannot move it between restarts. Hibernate validates mapped tables and never creates or updates them. The migrations create the application schema, users, organizations, memberships, customers, invoices, and invoice lines. Open Session in View is disabled so later database work stays in the application transaction boundary.
 
 ## Try it out
 
@@ -95,17 +107,23 @@ With the app running, run these from any directory:
 ```sh
 curl -i http://localhost:18080/actuator/health
 curl -i http://localhost:18080/v3/api-docs
-curl -i -X POST http://localhost:18080/api/v1/greetings \
-  -H 'Content-Type: application/json' -d '{"name":"Student"}'
-curl -i -X POST http://localhost:18080/api/v1/greetings \
-  -H 'Content-Type: application/json' -d '{"name":" "}'
 ```
 
-Expect health to return `UP`, OpenAPI to describe the greeting endpoint, a valid request to return `Hello, Student!`, and a blank name to return HTTP 400 with a field error. Open `http://localhost:18080/swagger-ui/index.html` in your browser to try the endpoint there.
+Health returns `UP`; OpenAPI describes the endpoints. Open `http://localhost:18080/swagger-ui/index.html` for the full API. Registration and login are public; the greeting endpoint and business APIs now require a bearer token.
 
-Errors use `application/problem+json`, with standard `type`, `title`, `status`, `detail`, and `instance` fields, plus an HTTP code and field errors when applicable. Rejected values and internal exception messages are omitted. This currently covers MVC validation, parsing, routing, content-type/method errors, and unexpected controller errors. Security errors will need their own integration with this format when authentication is added.
+See [the API walkthrough](API_WALKTHROUGH.md) for registration, login, organization membership, customers, and invoices. Use Swagger's **Authorize** button with the login response's `accessToken` (without adding the word Bearer).
 
-Only Actuator health is exposed; component details are hidden. There is no login or organization data yet. Don't expose this foundation publicly as an application; GitHub hosts the source code only.
+From the repository root, with the app running, you can also run:
+
+```sh
+python3 scripts/smoke-workflow.py
+```
+
+This makes only synthetic accounts and business records, checks the draft/issue/void workflow and tenant denial over HTTP, and prints no credentials or tokens. Those demo records remain in the local database. It isn't a performance test.
+
+Errors use `application/problem+json`, with standard `type`, `title`, `status`, `detail`, and `instance` fields, plus a code and field errors when applicable. Authentication errors use the same format; 401 responses from the security filter include `WWW-Authenticate: Bearer`. Rejected values, internal exception messages, and value-bearing database constraint logs are omitted.
+
+Only Actuator health is exposed; component details are hidden. The default profile disables API docs. Keep the application local during development; GitHub hosts the source code only.
 
 ## Stop it
 
@@ -119,10 +137,12 @@ This keeps the database volume. Don't use `down -v` unless you intend to erase l
 
 ## Questions I want to be able to answer
 
-1. Why use Flyway migrations and `ddl-auto: validate` instead of letting Hibernate update the schema?
-2. What does `@Valid` do, and how do field errors become an HTTP 400 response?
-3. Why use Problem Details, and why avoid returning parser or exception messages?
-4. Why test with PostgreSQL instead of an in-memory database?
-5. What's the difference between Surefire's focused tests and Failsafe's integration tests?
-6. Why doesn't a Compose `.env` automatically configure an app started in a separate shell?
-7. What changes when Open Session in View is disabled?
+1. Why keep organization roles in the database instead of embedding them in JWTs?
+2. What does JWT signature validation prove, and what do issuer, audience, and expiry checks add?
+3. Why is disabling CSRF reasonable for this explicit bearer-token API, but not every stateless app?
+4. How do organization-scoped queries and composite foreign keys work together?
+5. Why copy customer details when issuing an invoice?
+6. How can per-line tax rounding differ from rounding one aggregate tax amount?
+7. How do a row lock and an expected version prevent stale writes?
+8. Why must the last-owner check run under a shared organization lock?
+9. How does an invoice-number conflict prove the transaction rolls back line replacements too?
