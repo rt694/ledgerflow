@@ -28,7 +28,7 @@ Owners can list members, change a member's role with PUT, or remove a membership
 
 | Action | OWNER | EMPLOYEE | ACCOUNTANT |
 | --- | --- | --- | --- |
-| Read organization, customers, and invoices | Yes | Yes | Yes |
+| Read organization, customers, invoices, and ledger | Yes | Yes | Yes |
 | Manage memberships | Yes | No | No |
 | Create/edit customers | Yes | Yes | No |
 | Create/edit draft invoices | Yes | Yes | Yes |
@@ -79,10 +79,30 @@ Owners/accountants can call:
 
 Every successful write increments the version. Stale versions return 409; read the current invoice before trying again. Writes hold a scoped row lock while checking the version, so two requests using the same version cannot both succeed.
 
-ISSUED content cannot be edited or issued again. Customer name/email is refreshed at issuance and then stays fixed even if the customer changes. VOID is terminal. There are no invoice deletes or PAID transitions yet. Issuing/voiding does not create ledger entries; ledger and payment workflows come next.
+ISSUED content cannot be edited or issued again. Customer name/email is refreshed at issuance and then stays fixed even if the customer changes. VOID is terminal. There are no invoice deletes or PAID transitions yet. Issuing now posts receivables, revenue, and tax payable. Voiding an issued invoice adds an exact reversal. Payments come next.
 
 Lists use `page` (zero-based) and `size` (1–100, default 20). Responses contain `items`, `page`, `size`, and `totalElements`, ordered by creation time and ID.
 
 ## Checking failures
 
 Try a protected request without a token (401), a different user's organization (404), an employee issuing an invoice (403), an invalid amount (400), and an edit with an old version (409). The [smoke script](../scripts/smoke-workflow.py) automates a small synthetic workflow without printing tokens.
+
+## Inspect the ledger
+
+Use `GET .../ledger/accounts` to see the four USD accounts and their cumulative debits/credits. `debitMinusCredit` is a signed net amount: receivables normally show positive values, revenue and tax payable negative values. CASH starts at zero until payments are built. These are derived totals, not editable balance fields.
+
+Use `GET .../ledger/journals?page=0&size=20` for posted transactions, then `GET .../ledger/journals/{id}` for entries. Journal lists sort by posting time and ID. All organization members can read; invoice issue/void permissions still apply. There are no journal update/delete or manual posting endpoints.
+
+For the 64.92 invoice above, issuance records:
+
+| Account | Debit | Credit |
+| --- | ---: | ---: |
+| RECEIVABLES | 64.92 | 0.00 |
+| REVENUE | 0.00 | 59.97 |
+| TAX_PAYABLE | 0.00 | 4.95 |
+
+**Project assumption:** issuing confirms the goods/services have already been delivered. Advance billing, deferred revenue, partial fulfillment, and jurisdiction-specific tax rules aren't implemented. An invoice date alone isn't a general revenue-recognition rule.
+
+A draft has no journal. Voiding an issued invoice swaps every debit/credit in a new journal linked by `reversesId`; the original stays intact. Draft voids and zero-dollar invoices have no monetary postings. Successful issuance/voiding commits the state change and journal together. Duplicate or concurrent calls with an old version return 409 and cannot post twice; read the invoice to resolve an uncertain retry. There is no replayable HTTP idempotency-key contract yet.
+
+The migration also reconstructs existing synthetic issued invoices from their stored totals and issuance timestamps, with reversal journals for those already voided. It assumes those historical invoices followed the same delivery rule; this is a learning-data migration, not an import policy for real accounting records.

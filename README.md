@@ -2,7 +2,7 @@
 
 I'm building LedgerFlow to learn how payments, invoices, and bank reconciliation fit together. The idea is a small-business app where I can create invoices, simulate payments, and track the money in a double-entry ledger.
 
-The backend now supports users, organizations, customers, and invoices. I can log in, assign organization roles, create a draft invoice, edit it, issue it, and void it. The ledger, payments, bank connections, and frontend are still to build.
+The backend now supports users, organizations, customers, and invoices. I can log in, assign organization roles, create a draft invoice, edit it, issue it, and void it. Issuing and voiding now create balanced ledger postings and reversals. Payments, bank connections, and the frontend are still to build.
 
 ## What I'm using
 
@@ -22,9 +22,10 @@ I'm starting with one backend organized by business domain. That lets me learn t
 - Organization-scoped customers and paginated lists
 - USD invoices with decimal calculations and per-line tax rounding
 - Draft/issued/void states, fixed issued content, and version checks for stale edits
+- USD accounts, immutable balanced journals, exact reversals, and derived balances
 - PostgreSQL migrations, health checks, validation, consistent errors, and local Swagger UI
 
-Next is the double-entry ledger. After that I'll add simulated payments, bank syncing, reconciliation, and a frontend dashboard.
+Next I'll add simulated payments, bank syncing, reconciliation, and a frontend dashboard.
 
 Everything uses fake data. This project won't handle real money or real bank credentials. Stripe/Plaid integrations will use sandboxes, and any AWS deployment comes after checking costs and getting approval.
 
@@ -75,7 +76,7 @@ From `backend/`, with Java 21 selected and Docker running:
 ./mvnw verify
 ```
 
-This checks Java formatting, compiles the app, runs 19 focused tests, packages an executable JAR, and runs 42 integration tests against isolated PostgreSQL through Testcontainers. Integration tests fail if Docker is unavailable rather than silently skipping.
+This checks Java formatting, compiles the app, runs 19 focused tests, packages an executable JAR, and runs 51 integration tests against isolated PostgreSQL through Testcontainers. Integration tests fail if Docker is unavailable rather than silently skipping.
 
 From the repository root, with the local app running, `python3 scripts/smoke-workflow.py` checks a synthetic registration-to-invoice workflow over HTTP without printing tokens.
 

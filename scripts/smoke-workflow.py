@@ -55,12 +55,26 @@ def main():
     body["version"] = invoice["version"]
     draft = call("PUT", path, 200, body, owner)
     issued = call("POST", path + "/issue", 200, {"version": draft["version"]}, owner)
+    journals = call("GET", base + "/ledger/journals", 200, token=owner)
+    if journals["totalElements"] != 1:
+        raise RuntimeError("Expected one issuance journal")
+    original = journals["items"][0]
+    detail = call("GET", base + "/ledger/journals/" + original["id"], 200, token=owner)
+    if sum(Decimal(str(e["debit"])) for e in detail["entries"]) != Decimal("64.92"):
+        raise RuntimeError("Posting amount mismatch")
     body["version"] = issued["version"]
     call("PUT", path, 409, body, owner)
     call("GET", path, 404, token=outsider)
     voided = call("POST", path + "/void", 200, {"version": issued["version"]}, owner)
     if voided["status"] != "VOID":
         raise RuntimeError("Invoice transition mismatch")
+    journals = call("GET", base + "/ledger/journals", 200, token=owner)
+    if journals["totalElements"] != 2 or journals["items"][1]["reversesId"] != original["id"]:
+        raise RuntimeError("Reversal history mismatch")
+    balances = call("GET", base + "/ledger/accounts", 200, token=owner)
+    if any(Decimal(str(a["debitMinusCredit"])) != 0 for a in balances):
+        raise RuntimeError("Reversed balances must be zero")
+    print("Verified invoice posting, reversal history, and zero net balances after voiding.")
     print("Verified registration, login, organization/customer creation, draft editing, issuing, and voiding.")
     print("Verified issued content cannot be edited and another user cannot read the invoice.")
     print("Synthetic demo records remain in the local database. Tokens were not printed.")

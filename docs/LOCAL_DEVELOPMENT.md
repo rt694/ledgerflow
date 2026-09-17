@@ -98,7 +98,7 @@ cd backend
 
 The local API listens on `127.0.0.1:18080`. Set SERVER_PORT if you need another port. The default profile requires explicit database settings and keeps API docs disabled; the `local` profile supplies local connection defaults and enables Swagger UI.
 
-Flyway applies migrations before JPA starts and keeps its history in `public` so the schema search path cannot move it between restarts. Hibernate validates mapped tables and never creates or updates them. The migrations create the application schema, users, organizations, memberships, customers, invoices, and invoice lines. Open Session in View is disabled so later database work stays in the application transaction boundary.
+Flyway applies migrations before JPA starts and keeps its history in `public` so the schema search path cannot move it between restarts. Hibernate validates mapped tables and never creates or updates them. The migrations create the application schema, users, organizations, memberships, customers, invoices, invoice lines, ledger accounts, journal transactions, and journal entries. Open Session in View is disabled so later database work stays in the application transaction boundary.
 
 ## Try it out
 
