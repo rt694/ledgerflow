@@ -1,41 +1,44 @@
 # Progress
 
-Updated: 2026-09-16.
+Updated: 2026-09-17.
 
 ## Done so far
 
-- Created the public GitHub repository and sketched the architecture and build order.
-- Installed Temurin Java 21 in the local user tools directory without changing the global Java default.
-- Added a Spring Boot 3.5.16 backend and Maven 3.9.16 Wrapper with a pinned download checksum.
-- Added PostgreSQL 17.10 through Docker Compose, with localhost access and an ignored local password file.
-- Added Flyway's first migration to create the application schema. No business tables yet.
-- Configured JPA schema validation, disabled Open Session in View, and separated local/test settings.
-- Added health checks, local Swagger UI/OpenAPI, request validation, and safe Problem Details responses.
-- Added a temporary greeting endpoint that doesn't save data.
-- Added required formatting checks and focused/integration tests.
+- Public GitHub repository, architecture notes, and local setup.
+- Java 21/Spring Boot backend with Maven Wrapper, PostgreSQL Compose, Flyway, health checks, validation, and Swagger UI.
+- Registration/login, BCrypt password hashing, signed 15-minute JWTs, and consistent security errors.
+- Organizations and OWNER/EMPLOYEE/ACCOUNTANT memberships, with current database roles controlling access.
+- Owner-only membership changes and last-owner protection under an organization lock.
+- Organization-scoped customer creation, reads, updates, and paginated lists.
+- USD invoices and line items, decimal totals, per-line HALF_UP tax rounding, and bounded inputs.
+- Draft editing, issuing, voiding, fixed issued content, and customer snapshots.
+- Scoped row locks and monotonic versions to reject stale customer/invoice writes.
+- Database constraints for cross-organization references, unique invoice numbers, line calculations, and valid states.
+- Local key generation and a repeatable synthetic HTTP smoke workflow.
 
 ## What I've checked
 
-- `./mvnw verify` passed: formatting, compilation, JAR packaging, 9 focused tests, and 5 PostgreSQL integration tests. No tests skipped.
-- Flyway applied the migration, validated its checksum, and did nothing on a second migration run.
-- Started the packaged app with the local profile against the Compose database.
-- Verified HTTP 200 for health, OpenAPI, Swagger UI, and a valid greeting; verified HTTP 400 with field errors for a blank name.
-- Confirmed the development database contains a successful Flyway migration record.
-- Added a fresh-connection regression test for PostgreSQL search-path behavior and verified repeated startup.
-- Verified that the default profile keeps OpenAPI and Swagger UI disabled while health remains available.
-- Checked documentation links and Git exclusions for local credentials/build output.
+- `./mvnw verify` passed: formatting, compilation, JAR packaging, 19 focused tests, and 42 PostgreSQL integration tests. No skips.
+- Real signed-token tests reject tampering, expired tokens, wrong issuers/audiences, missing required claims, future issue times, and invalid subjects.
+- Negative tests cover cross-organization reads/writes, wrong roles, membership removal, and ignored JWT role claims.
+- Invoice tests cover rounding, transitions, fixed snapshots, stale versions, duplicate numbers, and rollback after a database conflict.
+- Concurrent requests preserve one invoice-edit winner and at least one organization owner.
+- Flyway applies/validates all three migrations; a fresh connection finds the same migration history.
+- Started the packaged app against the local Compose database and ran the synthetic workflow over HTTP.
+- Checked live health/OpenAPI and bearer authentication in Swagger, documentation links, and exclusions for credentials/build output.
 
-No payment integrations, financial workflows, or performance measurements have been run.
+No real financial data, provider calls, ledger posting, or performance measurements have been used.
 
 ## Up next
 
-Users and organizations: registration/login, password hashing, JWTs, roles, and organization-scoped data access. Authentication isn't implemented yet. The other ideas are in the [build checklist](docs/ROADMAP.md).
+The double-entry ledger: accounts, balanced journal postings, immutable entries, reversals, and balances. Invoices aren't ledger-backed yet. Payments and PAID invoice states come after that.
+
+The other ideas are in the [build checklist](docs/ROADMAP.md). The [API walkthrough](docs/API_WALKTHROUGH.md) explains what works now.
 
 ## Local environment
 
-- Java 21.0.12.1 is available for this backend; the global Java default remains 17.
-- Node.js 24.20.0; npm 11.19.0; Git 2.39.3.
-- Docker client and daemon 29.7.2; Compose v5.5.0.
-- Python 3.12.14.
-- Maven runs through the wrapper; database command-line tools run inside the PostgreSQL container.
-- Local ports: API 18080, PostgreSQL 55432. Another project already occupies 8080/5432.
+- Java 21.0.12.1 for this backend; global Java still defaults to 17.
+- Maven 3.9.16 through the wrapper; PostgreSQL 17.10 through Docker.
+- API port 18080, database port 55432, both on localhost.
+- JWT signing keys live in ignored `.local/`; tests generate temporary keys.
+- Python 3 is optional for the smoke workflow. Node isn't needed until the frontend.

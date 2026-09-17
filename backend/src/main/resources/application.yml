@@ -36,3 +36,15 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+ledgerflow:
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:https://ledgerflow.local}
+      private-key: file:${JWT_PRIVATE_KEY_PATH}
+      public-key: file:${JWT_PUBLIC_KEY_PATH}
+logging:
+  level:
+    # PostgreSQL constraint errors can contain submitted emails and financial references.
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: "OFF"
+    org.hibernate.SQL: "OFF"
+    org.hibernate.orm.jdbc.bind: "OFF"

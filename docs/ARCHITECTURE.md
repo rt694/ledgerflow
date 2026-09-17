@@ -1,6 +1,6 @@
 # Architecture sketch
 
-The backend foundation is in place. The business domains, frontend, provider integrations, and background processing below are still planned.
+The backend foundation, identity, organizations, customers, and invoices are in place. The other business domains, frontend, provider integrations, and background processing below are still planned.
 
 ## Runtime shape
 
@@ -34,7 +34,7 @@ The outbox later solves the database/Kafka dual-write gap: commit business state
 
 ## Proposed repository structure
 
-The backend, Compose configuration, and environment template now exist. The domain folders and other services below are planned; I'll add them as I build each part.
+The backend includes identity, organization, customer, invoicing, and shared packages. The other domain packages/services below are planned.
 
 ```text
 ledgerflow/
@@ -44,6 +44,7 @@ ledgerflow/
   docs/
     ARCHITECTURE.md
     LOCAL_DEVELOPMENT.md
+    API_WALKTHROUGH.md
     ROADMAP.md
     api/                     # later API conventions/contracts
     events/                  # later versioned event schemas
@@ -68,6 +69,7 @@ ledgerflow/
   analytics/                 # later analytics service
   observability/             # later monitoring
   infrastructure/terraform/  # optional AWS deployment
+  scripts/                   # local key generation and HTTP smoke workflow
   .github/workflows/         # later CI/CD
 ```
 
@@ -75,8 +77,8 @@ Within each domain, use `api`, `application`, `domain`, and `infrastructure` sub
 
 ## Things I still need to work out
 
-- Identity token lifetime, signing key management, and browser token storage when building login and organizations.
-- Supported currencies, rounding policy, invoice lifecycle, and posting points when building invoices and the ledger.
+- Browser token storage, refresh/logout, and signing key rotation when adding the frontend or tightening security.
+- More currencies, payment-backed invoice states, and ledger posting points. USD, per-line tax rounding, and DRAFT/ISSUED/VOID are implemented.
 - Ledger constraints, locking strategy, reversal semantics, and race handling when building the ledger.
 - Reconciliation rules, tolerances, and explanation of confidence scores when adding reconciliation.
 - Event partition keys, ordering, compatibility, and retry budgets when adding events.
