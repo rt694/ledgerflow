@@ -1,6 +1,7 @@
 package com.ledgerflow.invoicing;
 
 import com.ledgerflow.customer.CustomerDirectory;
+import com.ledgerflow.ledger.InvoiceLedger;
 import com.ledgerflow.organization.OrganizationAccess;
 import com.ledgerflow.organization.Role;
 import com.ledgerflow.shared.api.*;
@@ -18,16 +19,19 @@ class InvoiceService {
   private final CustomerDirectory customers;
   private final OrganizationAccess access;
   private final Clock clock;
+  private final InvoiceLedger ledger;
 
   InvoiceService(
       InvoiceRepository invoices,
       CustomerDirectory customers,
       OrganizationAccess access,
-      Clock clock) {
+      Clock clock,
+      InvoiceLedger ledger) {
     this.invoices = invoices;
     this.customers = customers;
     this.access = access;
     this.clock = clock;
+    this.ledger = ledger;
   }
 
   public InvoiceController.InvoiceResponse create(
@@ -83,6 +87,7 @@ class InvoiceService {
     Invoice invoice = locked(org, id, version);
     validDueDate(invoice.dueDate());
     invoice.issue(customers.require(org, invoice.customerId()), clock.instant());
+    ledger.issue(org, id, invoice.subtotal(), invoice.tax(), invoice.issuedAt());
     return response(invoice);
   }
 
@@ -90,7 +95,9 @@ class InvoiceService {
       UUID org, UUID actor, UUID id, long version) {
     access.require(org, actor, Role.OWNER, Role.ACCOUNTANT);
     Invoice invoice = locked(org, id, version);
+    boolean issued = invoice.status() == InvoiceStatus.ISSUED;
     invoice.voidInvoice(clock.instant());
+    if (issued) ledger.reverse(org, id, invoice.total(), invoice.voidedAt());
     return response(invoice);
   }
 

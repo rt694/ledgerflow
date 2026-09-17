@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 import com.ledgerflow.customer.CustomerDirectory;
+import com.ledgerflow.ledger.InvoiceLedger;
 import com.ledgerflow.organization.OrganizationAccess;
 import com.ledgerflow.organization.Role;
 import com.ledgerflow.shared.api.BusinessException;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class InvoiceServiceTest {
   @Mock InvoiceRepository invoices;
+  @Mock InvoiceLedger ledger;
   @Mock CustomerDirectory customers;
   @Mock OrganizationAccess access;
   InvoiceService service;
@@ -29,7 +31,7 @@ class InvoiceServiceTest {
 
   @BeforeEach
   void setup() {
-    service = new InvoiceService(invoices, customers, access, clock);
+    service = new InvoiceService(invoices, customers, access, clock, ledger);
   }
 
   @Test
