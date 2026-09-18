@@ -130,10 +130,22 @@ class Invoice {
   }
 
   void voidInvoice(Instant now) {
+    if (status == InvoiceStatus.PAID)
+      throw BusinessException.conflict("Paid invoices cannot be voided.");
     if (status == InvoiceStatus.VOID) throw BusinessException.conflict("Invoice is already void.");
     status = InvoiceStatus.VOID;
     voidedAt = now;
     version++;
+  }
+
+  void settlement(boolean paid) {
+    if (status != InvoiceStatus.ISSUED && status != InvoiceStatus.PAID)
+      throw BusinessException.conflict("Invoice cannot accept payment activity.");
+    InvoiceStatus next = paid ? InvoiceStatus.PAID : InvoiceStatus.ISSUED;
+    if (status != next) {
+      status = next;
+      version++;
+    }
   }
 
   UUID id() {

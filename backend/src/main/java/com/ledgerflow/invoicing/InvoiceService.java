@@ -4,6 +4,7 @@ import com.ledgerflow.customer.CustomerDirectory;
 import com.ledgerflow.ledger.InvoiceLedger;
 import com.ledgerflow.organization.OrganizationAccess;
 import com.ledgerflow.organization.Role;
+import com.ledgerflow.payment.PaymentGuard;
 import com.ledgerflow.shared.api.*;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -20,18 +21,21 @@ class InvoiceService {
   private final OrganizationAccess access;
   private final Clock clock;
   private final InvoiceLedger ledger;
+  private final PaymentGuard payments;
 
   InvoiceService(
       InvoiceRepository invoices,
       CustomerDirectory customers,
       OrganizationAccess access,
       Clock clock,
-      InvoiceLedger ledger) {
+      InvoiceLedger ledger,
+      PaymentGuard payments) {
     this.invoices = invoices;
     this.customers = customers;
     this.access = access;
     this.clock = clock;
     this.ledger = ledger;
+    this.payments = payments;
   }
 
   public InvoiceController.InvoiceResponse create(
@@ -95,6 +99,7 @@ class InvoiceService {
       UUID org, UUID actor, UUID id, long version) {
     access.require(org, actor, Role.OWNER, Role.ACCOUNTANT);
     Invoice invoice = locked(org, id, version);
+    payments.requireVoidable(org, id);
     boolean issued = invoice.status() == InvoiceStatus.ISSUED;
     invoice.voidInvoice(clock.instant());
     if (issued) ledger.reverse(org, id, invoice.total(), invoice.voidedAt());

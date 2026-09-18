@@ -20,22 +20,30 @@ Updated: 2026-09-17.
 
 ## What I've checked
 
-- `./mvnw verify` passed: formatting, compilation, JAR packaging, 19 focused tests, and 51 PostgreSQL integration tests. No skips.
+- `./mvnw verify` passed: formatting, compilation, JAR packaging, 25 focused tests, and 65 PostgreSQL integration tests. No skips.
 - Real signed-token tests reject tampering, expired tokens, wrong issuers/audiences, missing required claims, future issue times, and invalid subjects.
 - Negative tests cover cross-organization reads/writes, wrong roles, membership removal, and ignored JWT role claims.
 - Invoice tests cover rounding, transitions, fixed snapshots, stale versions, duplicate numbers, and rollback after a database conflict.
 - Concurrent requests preserve one invoice-edit winner and at least one organization owner.
-- Flyway applies/validates all four migrations; a fresh connection finds the same migration history.
+- Flyway applies/validates all five migrations; a fresh connection finds the same migration history.
 - Started the packaged app against the local Compose database and ran the synthetic workflow over HTTP.
 - Checked live health/OpenAPI and bearer authentication in Swagger, documentation links, and exclusions for credentials/build output.
 
 Ledger tests also cover concurrent issuance, posting rollback, empty/unbalanced journals, incorrect reversals, tenant boundaries, and upgrading existing invoice history.
 
-No real financial data, provider calls, or performance measurements have been used.
+Stripe SDK contract checks use a local HTTP fixture server; payment integration tests use a mocked provider and real PostgreSQL. They cover raw signatures, test-mode guards, retries, concurrent creation, delayed/duplicate events, refunds, disputes, cancellation, and atomic rollback.
+
+No real financial data, account-backed Stripe calls, or performance measurements have been used.
+
+## In progress
+
+Stripe Sandbox code is implemented: intent reservations and stable provider keys, signed webhooks, PAID invoice settlement, payment/refund/dispute journals, cancellation, and one full-refund request per payment. Verified external partial refunds are handled too.
+
+The account-backed sandbox smoke check is pending because test credentials and a CLI listener signing secret are not configured locally. Follow [sandbox setup](docs/STRIPE_SANDBOX.md). Payments default to disabled; no mock provider is used in the running app.
 
 ## Up next
 
-Stripe Sandbox payments: test-only payment intents, verified webhooks, duplicate-event handling, payment postings, and PAID invoice states. The ledger currently supports invoice issue/void workflows; there is no manual journal-write endpoint.
+Finish the Stripe Sandbox check, then add Plaid Sandbox banking. Automated provider-request recovery, fees/payouts, credit notes, and additional payment attempts are not implemented.
 
 The other ideas are in the [build checklist](docs/ROADMAP.md). The [API walkthrough](docs/API_WALKTHROUGH.md) explains what works now.
 
@@ -45,4 +53,5 @@ The other ideas are in the [build checklist](docs/ROADMAP.md). The [API walkthro
 - Maven 3.9.16 through the wrapper; PostgreSQL 17.10 through Docker.
 - API port 18080, database port 55432, both on localhost.
 - JWT signing keys live in ignored `.local/`; tests generate temporary keys.
+- Stripe CLI 1.51.0 installed user-locally; account authentication is pending.
 - Python 3 is optional for the smoke workflow. Node isn't needed until the frontend.

@@ -66,7 +66,7 @@ Creating an organization and its owner membership is one database transaction. M
 
 Entities and repositories stay package-private. Other domains use UserDirectory, OrganizationAccess, and CustomerDirectory rather than another domain's repository. Tenant records are queried by organization and ID together. Composite foreign keys also prevent cross-organization customer/invoice and invoice/line associations at the database level.
 
-Invoices support USD for now, integer quantities, two-place prices, and fractional tax rates with up to four places. Tax rounds HALF_UP per line and is then summed. This is a documented project rule, not a claim to implement every jurisdiction's tax policy. Issued invoices copy customer details and reject content edits; VOID is terminal. Invoice issuance and voiding now post to the ledger; payment-backed transitions come next.
+Invoices support USD for now, integer quantities, two-place prices, and fractional tax rates with up to four places. Tax rounds HALF_UP per line and is then summed. This is a documented project rule, not a claim to implement every jurisdiction's tax policy. Issued invoices copy customer details and reject content edits; VOID is terminal. Invoice issuance and voiding now post to the ledger; confirmed payments can now mark invoices PAID.
 
 Customer/invoice writes use a scoped pessimistic row lock and an explicit, monotonic version checked under that lock. The version is managed by the aggregate rather than JPA's @Version. This serializes writes and reliably rejects stale content, including line-only edits. Invoice line positions use a deferred unique constraint so JPA can replace lines in a single transaction without an intermediate duplicate-position failure. Conflict/rollback and concurrency tests use real PostgreSQL.
 
@@ -80,8 +80,24 @@ I assume issuance follows delivery: debit receivables for the total, credit reve
 
 Accounts are a fixed USD chart created for each organization. Tenant/currency composite foreign keys prevent mixing scopes. Debits/credits are exact decimal amounts, and balances are calculated from immutable entries. A journal must have at least two positive-sided entries and equal debit/credit sums at commit. Database triggers reject UPDATE/DELETE and entries added after the header's creating transaction. These protect ordinary database writes; a database administrator can disable triggers or truncate tables. Restricted production database roles are still to build.
 
-Invoice row locks, versions, and unique (organization, invoice, operation) sources prevent duplicate postings. Retry responses remain 409 rather than replaying a stored HTTP response. Provider events will need their own persistent idempotency contract when payments are added.
+Invoice row locks, versions, and unique (organization, invoice, operation) sources prevent duplicate postings. Retry responses remain 409 rather than replaying a stored HTTP response. Provider events now have persistent event-ID and financial-source deduplication.
 
 The fourth migration explicitly backfills previous synthetic issued invoices and already-voided reversals, preserving saved totals and timestamps. This uses the same delivery assumption; real-data adoption would require reviewed opening balances and an import policy instead.
 
 Questions I can practice explaining: Why isn't equal debit/credit a row CHECK constraint? Why must invoice state and posting commit together? Why do corrections reverse entries instead of editing them? How does a stale retry avoid posting twice? Why can revenue have a negative debit-minus-credit balance?
+
+## How I added sandbox payments
+
+I use the official Stripe Java SDK 33.4.2 for request serialization, provider calls, and signature verification. Test-key validation and live-mode rejection keep the integration sandbox-only. The default is disabled until both local credentials are configured. The actual provider check is pending; fixture tests are not described as a sandbox run.
+
+Intent creation has three phases: reserve a local attempt under an invoice lock, call Stripe without a database transaction, then bind the provider reference in another short transaction. The local UUID becomes a stable provider idempotency key. One intent per invoice keeps the first version understandable. Unknown requests older than 23 hours stop for recovery rather than getting another provider operation after its key expires. This trades flexibility for safer retries; automated recovery and multiple attempts will need explicit designs.
+
+Verified webhooks retrieve canonical provider objects and verify invoice totals plus tenant/payment metadata. Event IDs stop delivery duplicates; unique intent/refund/dispute source references stop duplicate money effects under different events. An invoice lock serializes all effects. Invoice settlement, immutable journals, and the event marker commit together. The handler is synchronous for now; it doesn't acknowledge managed effects before they are durable. Async inbox/outbox processing comes later.
+
+Payments use STRIPE_CLEARING instead of CASH. The ledger models gross card collections and reversals, not bank payouts or provider fees. Refunds reverse payment, reopening receivables; revenue cancellation needs a credit note. Disputes post actual withdrawal/restoration events rather than treating notification as an immediate loss. Out-of-order reinstatement records the withdrawal and restoration once so a delayed withdrawal can't remove funds twice.
+
+The fifth migration also replaces the ledger's wrapping tuple-xmin comparison with a full creating-transaction ID. Its default/check and immutable header guard permit entry assembly only in the creating transaction. Existing headers stay unchanged as financial records; new transaction metadata is added through schema migration.
+
+Client secrets are returned only from authorized intent requests with no-store responses, never persisted or included in ordinary payment reads. I don't store raw webhook bodies or card data. Payment history blocks invoice voids; canceling an unpaid intent permits voiding, while paid/refunded invoices need the later credit-note flow.
+
+Interview questions are in [sandbox notes](docs/STRIPE_SANDBOX.md).

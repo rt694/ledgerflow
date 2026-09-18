@@ -1,6 +1,6 @@
 # Build checklist
 
-I'm working through this in small pieces so I can understand and test each part before moving on. Planning, backend setup, users/organizations, customers/invoices, and the invoice ledger are done. Stripe Sandbox is next; the remaining features are still to build.
+I'm working through this in small pieces so I can understand and test each part before moving on. Planning, backend setup, users/organizations, customers/invoices, and the invoice ledger are done. Stripe Sandbox is implemented locally with the account-backed check pending; the remaining features are still to build.
 
 I'll keep the setup notes, progress, and decisions updated as the code changes. There aren't any delivery dates yet.
 
@@ -11,7 +11,7 @@ I'll keep the setup notes, progress, and decisions updated as the code changes. 
 | Identity and organizations | Done | Registration/login, password hashing, JWT, memberships and roles | Authorized requests succeed; expired/invalid tokens, prohibited roles, and cross-tenant access fail; secrets stay outside code and logs |
 | Customers and invoices | Done | Tenant-scoped customers, invoice lines, calculations and lifecycle | API/service/repository/integration tests cover rounding and invalid transitions; foreign-tenant associations rejected |
 | Ledger | Done | Accounts, journals, balanced postings, immutability, reversals and balances | Currency, rounding, duplicate posting, database constraints, rollback, and concurrent requests tested; posted entries cannot be altered or deleted |
-| Stripe Sandbox | To build | Test-only payment intents, signed webhooks, success/failure/refund/dispute handling | Provider-contract fixtures plus sandbox smoke checks; invalid signatures rejected; duplicate/delayed/out-of-order events and retries produce correct ledger effects |
+| Stripe Sandbox | In progress | Test-only payment intents, signed webhooks, success/failure/refund/dispute handling | Provider-contract fixtures plus sandbox smoke checks; invalid signatures rejected; duplicate/delayed/out-of-order events and retries produce correct ledger effects |
 | Plaid Sandbox | To build | Simulated connections, secured tokens, account/balance/transaction sync and webhooks | Sandbox smoke checks and fixture-based contract tests; cursor pagination, duplicate data, updates/removals, and sync recovery verified |
 | Reconciliation | To build | Deterministic matching, confidence, manual review and history | Known synthetic matches reconcile; ambiguous cases queue for review; decisions remain auditable and cannot directly mutate posted journals |
 | Events | To build | Transactional outbox, Kafka, event versions, idempotent consumers, backoff, dead letters and correlation | Failure injection proves outbox recovery, duplicate safety, retries and dead-letter routing; ordering and schema compatibility documented |
