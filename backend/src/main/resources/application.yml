@@ -37,6 +37,10 @@ springdoc:
   swagger-ui:
     enabled: false
 ledgerflow:
+  stripe:
+    enabled: ${STRIPE_ENABLED:false}
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   security:
     jwt:
       issuer: ${JWT_ISSUER:https://ledgerflow.local}
@@ -46,5 +50,6 @@ logging:
   level:
     # PostgreSQL constraint errors can contain submitted emails and financial references.
     org.hibernate.engine.jdbc.spi.SqlExceptionHelper: "OFF"
+    com.stripe: "OFF"
     org.hibernate.SQL: "OFF"
     org.hibernate.orm.jdbc.bind: "OFF"

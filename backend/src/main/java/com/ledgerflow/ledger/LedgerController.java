@@ -58,7 +58,9 @@ public class LedgerController {
                     rs.getString("operation"),
                     rs.getString("currency"),
                     rs.getTimestamp("posted_at").toInstant(),
-                    rs.getObject("reverses_id", UUID.class)),
+                    rs.getObject("reverses_id", UUID.class),
+                    rs.getObject("payment_id", UUID.class),
+                    rs.getString("source_key")),
             organizationId,
             size,
             (long) page * size);
@@ -84,7 +86,9 @@ public class LedgerController {
                     rs.getString("operation"),
                     rs.getString("currency"),
                     rs.getTimestamp("posted_at").toInstant(),
-                    rs.getObject("reverses_id", UUID.class)),
+                    rs.getObject("reverses_id", UUID.class),
+                    rs.getObject("payment_id", UUID.class),
+                    rs.getString("source_key")),
             organizationId,
             id);
     if (headers.isEmpty()) throw BusinessException.notFound();
@@ -114,7 +118,9 @@ public class LedgerController {
       String operation,
       String currency,
       Instant postedAt,
-      UUID reversesId) {}
+      UUID reversesId,
+      UUID paymentId,
+      String sourceKey) {}
 
   public record Entry(String accountCode, BigDecimal debit, BigDecimal credit) {}
 

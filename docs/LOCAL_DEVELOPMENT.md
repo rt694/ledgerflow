@@ -98,7 +98,7 @@ cd backend
 
 The local API listens on `127.0.0.1:18080`. Set SERVER_PORT if you need another port. The default profile requires explicit database settings and keeps API docs disabled; the `local` profile supplies local connection defaults and enables Swagger UI.
 
-Flyway applies migrations before JPA starts and keeps its history in `public` so the schema search path cannot move it between restarts. Hibernate validates mapped tables and never creates or updates them. The migrations create the application schema, users, organizations, memberships, customers, invoices, invoice lines, ledger accounts, journal transactions, and journal entries. Open Session in View is disabled so later database work stays in the application transaction boundary.
+Flyway applies migrations before JPA starts and keeps its history in `public` so the schema search path cannot move it between restarts. Hibernate validates mapped tables and never creates or updates them. The migrations create the application schema, users, organizations, memberships, customers, invoices, invoice lines, ledger accounts, journal transactions, journal entries, payment attempts, refund requests, and processed event references. Open Session in View is disabled so later database work stays in the application transaction boundary.
 
 ## Try it out
 
@@ -146,3 +146,7 @@ This keeps the database volume. Don't use `down -v` unless you intend to erase l
 7. How do a row lock and an expected version prevent stale writes?
 8. Why must the last-owner check run under a shared organization lock?
 9. How does an invoice-number conflict prove the transaction rolls back line replacements too?
+
+## Optional sandbox payments
+
+Payments default to disabled. See [Stripe Sandbox setup](STRIPE_SANDBOX.md) to configure test credentials, start CLI forwarding, and run the payment/refund smoke check. Local fixture tests need no Stripe account.

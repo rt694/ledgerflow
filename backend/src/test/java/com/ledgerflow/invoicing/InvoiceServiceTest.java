@@ -8,6 +8,7 @@ import com.ledgerflow.customer.CustomerDirectory;
 import com.ledgerflow.ledger.InvoiceLedger;
 import com.ledgerflow.organization.OrganizationAccess;
 import com.ledgerflow.organization.Role;
+import com.ledgerflow.payment.PaymentGuard;
 import com.ledgerflow.shared.api.BusinessException;
 import java.math.BigDecimal;
 import java.time.*;
@@ -21,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class InvoiceServiceTest {
   @Mock InvoiceRepository invoices;
   @Mock InvoiceLedger ledger;
+  @Mock PaymentGuard payments;
   @Mock CustomerDirectory customers;
   @Mock OrganizationAccess access;
   InvoiceService service;
@@ -31,7 +33,7 @@ class InvoiceServiceTest {
 
   @BeforeEach
   void setup() {
-    service = new InvoiceService(invoices, customers, access, clock, ledger);
+    service = new InvoiceService(invoices, customers, access, clock, ledger, payments);
   }
 
   @Test

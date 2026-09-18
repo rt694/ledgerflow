@@ -1,6 +1,6 @@
 # Architecture sketch
 
-The backend foundation, identity, organizations, customers, invoices, and the invoice ledger are in place. The other business domains, frontend, provider integrations, and background processing below are still planned.
+The backend foundation, identity, organizations, customers, invoices, the invoice ledger, and local Stripe payment code are in place. The account-backed sandbox check is pending. The other business domains, frontend, provider integrations, and background processing below are still planned.
 
 ## Runtime shape
 
@@ -28,13 +28,13 @@ Organization membership is enforced at application entry points and data access.
 
 ## Transaction and integration boundaries
 
-An invoice operation updates invoice state and post its corresponding journal within one PostgreSQL transaction by calling the ledger API. `InvoiceLedger` requires an existing transaction; it never commits separately. Ledger-owned JDBC statements share the JPA transaction connection. Immutable headers and entries are assembled together; a deferred PostgreSQL constraint trigger checks balance at commit. Entry insertion locks the header and requires its creating transaction, blocking later appends. External provider calls cannot participate in that database transaction. Payment workflows therefore need persisted attempts, provider idempotency keys, explicit states, and verified webhook confirmation. Duplicate events become no-ops; delayed events must not blindly regress state. I’ll work out the state transitions and ordering rules when adding payments.
+An invoice operation updates invoice state and post its corresponding journal within one PostgreSQL transaction by calling the ledger API. `InvoiceLedger` requires an existing transaction; it never commits separately. Ledger-owned JDBC statements share the JPA transaction connection. Immutable headers and entries are assembled together; a deferred PostgreSQL constraint trigger checks balance at commit. Entry insertion locks the header and requires its creating transaction, blocking later appends. External provider calls cannot participate in that database transaction. Payment workflows therefore need persisted attempts, provider idempotency keys, explicit states, and verified webhook confirmation. Duplicate events become no-ops; delayed events must not blindly regress state. Payment reservations, canonical signed-webhook handling, deduplication, and invoice settlement now implement this boundary. Stripe fees/payouts and automated recovery remain planned.
 
 The outbox later solves the database/Kafka dual-write gap: commit business state and the event together, publish afterward, and retry safely. An event is a committed fact, not a replacement for a ledger transaction.
 
 ## Proposed repository structure
 
-The backend includes identity, organization, customer, invoicing, ledger, and shared packages. The other domain packages/services below are planned.
+The backend includes identity, organization, customer, invoicing, ledger, payment, and shared packages. The other domain packages/services below are planned.
 
 ```text
 ledgerflow/
@@ -78,7 +78,7 @@ Within each domain, use `api`, `application`, `domain`, and `infrastructure` sub
 ## Things I still need to work out
 
 - Browser token storage, refresh/logout, and signing key rotation when adding the frontend or tightening security.
-- More currencies, payment-backed invoice states, and payment posting points. USD, per-line tax rounding, and DRAFT/ISSUED/VOID are implemented.
+- More currencies, additional payment attempts, fees/payouts, and credit notes. USD, per-line tax rounding, and DRAFT/ISSUED/PAID/VOID are implemented.
 - Manual journals, a configurable chart of accounts, accounting periods, and replayable idempotency contracts as workflows expand.
 - Reconciliation rules, tolerances, and explanation of confidence scores when adding reconciliation.
 - Event partition keys, ordering, compatibility, and retry budgets when adding events.

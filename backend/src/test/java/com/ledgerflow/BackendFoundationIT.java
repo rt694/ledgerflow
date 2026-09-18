@@ -22,7 +22,7 @@ class BackendFoundationIT extends IntegrationTestSupport {
                 "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'ledgerflow'",
                 Integer.class))
         .isEqualTo(1);
-    assertThat(flyway.info().applied()).hasSize(4);
+    assertThat(flyway.info().applied()).hasSize(5);
     assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     assertThat(flyway.migrate().migrationsExecuted).isZero();
   }
@@ -35,7 +35,7 @@ class BackendFoundationIT extends IntegrationTestSupport {
             .defaultSchema("public")
             .load();
     assertThat(fresh.migrate().migrationsExecuted).isZero();
-    assertThat(fresh.info().applied()).hasSize(4);
+    assertThat(fresh.info().applied()).hasSize(5);
   }
 
   @Test
@@ -59,6 +59,9 @@ class BackendFoundationIT extends IntegrationTestSupport {
         .andExpect(jsonPath("$.info.title").value("LedgerFlow API"))
         .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
         .andExpect(jsonPath("$.paths['/api/v1/auth/register'].post.security").isEmpty())
+        .andExpect(jsonPath("$.paths['/api/v1/webhooks/stripe'].post.security").isEmpty())
+        .andExpect(
+            jsonPath("$.components.schemas.PaymentCreateRequest.properties.invoiceId").exists())
         .andExpect(
             jsonPath("$.components.schemas.OrganizationCreateRequest.properties.name").exists())
         .andExpect(jsonPath("$.components.schemas.CustomerCreateRequest.properties.email").exists())

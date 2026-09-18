@@ -31,6 +31,7 @@ public class SecurityConfiguration {
             auth -> {
               auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login")
                   .permitAll();
+              auth.requestMatchers(HttpMethod.POST, "/api/v1/webhooks/stripe").permitAll();
               auth.requestMatchers(HttpMethod.GET, "/actuator/health").permitAll();
               if (docsEnabled)
                 auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
