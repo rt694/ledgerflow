@@ -150,3 +150,5 @@ This keeps the database volume. Don't use `down -v` unless you intend to erase l
 ## Optional sandbox payments
 
 Payments default to disabled. See [Stripe Sandbox setup](STRIPE_SANDBOX.md) to configure test credentials, start CLI forwarding, and run the payment/refund smoke check. Local fixture tests need no Stripe account.
+
+Fake bank connections also default to disabled. See [Plaid Sandbox setup](PLAID_SANDBOX.md) for the encryption key, public HTTPS callback, and account-backed smoke check. Automated banking tests need no Plaid account.

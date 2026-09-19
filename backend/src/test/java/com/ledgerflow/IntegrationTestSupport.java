@@ -72,7 +72,9 @@ abstract class IntegrationTestSupport {
     if (body != null)
       builder.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body));
     var response = mvc.perform(builder).andReturn().getResponse();
-    assertThat(response.getStatus()).as(method + " " + path).isEqualTo(expected);
+    assertThat(response.getStatus())
+        .as(method + " " + path + " response: " + response.getContentAsString())
+        .isEqualTo(expected);
     if (response.getContentAsString().isBlank()) return json.nullNode();
     return json.readTree(response.getContentAsString());
   }
