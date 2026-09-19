@@ -41,6 +41,12 @@ ledgerflow:
     enabled: ${STRIPE_ENABLED:false}
     secret-key: ${STRIPE_SECRET_KEY:}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  plaid:
+    enabled: ${PLAID_ENABLED:false}
+    client-id: ${PLAID_CLIENT_ID:}
+    secret: ${PLAID_SECRET:}
+    webhook-url: ${PLAID_WEBHOOK_URL:}
+    token-encryption-key: ${PLAID_TOKEN_ENCRYPTION_KEY:}
   security:
     jwt:
       issuer: ${JWT_ISSUER:https://ledgerflow.local}
@@ -51,5 +57,6 @@ logging:
     # PostgreSQL constraint errors can contain submitted emails and financial references.
     org.hibernate.engine.jdbc.spi.SqlExceptionHelper: "OFF"
     com.stripe: "OFF"
+    com.plaid: "OFF"
     org.hibernate.SQL: "OFF"
     org.hibernate.orm.jdbc.bind: "OFF"

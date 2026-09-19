@@ -18,6 +18,18 @@
   </properties>
   <dependencies>
     <dependency>
+      <groupId>com.plaid</groupId>
+      <artifactId>plaid-java</artifactId>
+      <version>45.0.0</version>
+      <exclusions>
+        <!-- Spring's test stack already supplies an org.json implementation. -->
+        <exclusion>
+          <groupId>org.json</groupId>
+          <artifactId>json</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
       <groupId>com.stripe</groupId>
       <artifactId>stripe-java</artifactId>
       <version>33.4.2</version>

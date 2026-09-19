@@ -101,3 +101,15 @@ The fifth migration also replaces the ledger's wrapping tuple-xmin comparison wi
 Client secrets are returned only from authorized intent requests with no-store responses, never persisted or included in ordinary payment reads. I don't store raw webhook bodies or card data. Payment history blocks invoice voids; canceling an unpaid intent permits voiding, while paid/refunded invoices need the later credit-note flow.
 
 Interview questions are in [sandbox notes](docs/STRIPE_SANDBOX.md).
+
+## Plaid Sandbox banking
+
+Plaid is fixed to its Sandbox endpoint in the SDK adapter. Link creates a short-lived token for the signed-in user, and public-token exchange accepts only Sandbox token prefixes. A caller-supplied idempotency key lets the same exchange response be read again without trying to consume the one-time public token twice.
+
+Permanent access tokens are encrypted with AES-256-GCM before they are saved. Every encryption gets a random IV and authenticates the organization and connection IDs as extra data. The API models deliberately leave out the ciphertext, IV, sync cursor, and hashes.
+
+`/transactions/sync` provider calls happen without a database transaction held open. LedgerFlow gathers every page, restarts from the original cursor when Plaid reports a pagination mutation, and applies the completed batch plus its cursor in one short PostgreSQL transaction. A row lock and cursor comparison stop concurrent syncs from committing the same position. The current transaction table is convenient to read, while the append-only change table keeps the added, modified, and removed trail.
+
+Plaid's generated SDK exposes amounts as `Double`, so the adapter immediately converts them with `BigDecimal.valueOf`; all internal models and PostgreSQL columns use decimal values. Webhooks verify Plaid's ES256 JWT key details, signature, five-minute issue window, and exact raw request-body hash before parsing the event. Transaction webhooks run the same sync path, and Item errors move a connection into a reconnectable state.
+
+See [fake bank setup](docs/PLAID_SANDBOX.md) for the account-backed check and the remaining public-callback requirement.

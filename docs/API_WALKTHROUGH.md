@@ -108,3 +108,11 @@ A draft has no journal. Voiding an issued invoice swaps every debit/credit in a 
 The migration also reconstructs existing synthetic issued invoices from their stored totals and issuance timestamps, with reversal journals for those already voided. It assumes those historical invoices followed the same delivery rule; this is a learning-data migration, not an import policy for real accounting records.
 
 Payment history blocks invoice voiding. Cancel an unpaid intent first; successful/refunded payments need a future credit-note workflow. Payment setup is disabled by default and the account-backed sandbox check is still pending.
+
+## Connect a fake bank
+
+After following [Plaid Sandbox setup](PLAID_SANDBOX.md), owners and accountants can call `POST .../banking/link-token`. A browser client gives that short-lived token to Plaid Link, then sends Link's returned `publicToken` to `POST .../banking/connections` with an `Idempotency-Key` header. Retrying the exact exchange key is safe. Employees can read banking data but cannot connect or sync a bank.
+
+Call `POST .../banking/connections/{id}/sync` to import the latest data. Read accounts at `GET .../banking/connections/{id}/accounts` and the newest 100 current transactions at `GET .../banking/transactions`. Add `?includeRemoved=true` when you need removed records too. Plaid's signed transaction webhook runs the same cursor sync automatically.
+
+Amounts keep Plaid's sign convention: a positive number usually means money leaving an account and a negative number usually means money entering it. These imported records do not create ledger entries yet. The next piece will reconcile them with invoice and payment activity while keeping both histories intact.
