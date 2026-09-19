@@ -115,4 +115,12 @@ After following [Plaid Sandbox setup](PLAID_SANDBOX.md), owners and accountants 
 
 Call `POST .../banking/connections/{id}/sync` to import the latest data. Read accounts at `GET .../banking/connections/{id}/accounts` and the newest 100 current transactions at `GET .../banking/transactions`. Add `?includeRemoved=true` when you need removed records too. Plaid's signed transaction webhook runs the same cursor sync automatically.
 
-Amounts keep Plaid's sign convention: a positive number usually means money leaving an account and a negative number usually means money entering it. These imported records do not create ledger entries yet. The next piece will reconcile them with invoice and payment activity while keeping both histories intact.
+Amounts keep Plaid's sign convention: a positive number usually means money leaving an account and a negative number usually means money entering it. Syncing alone does not create ledger entries. A reviewed reconciliation decision can create a new journal while keeping the imported history intact.
+
+## Review incoming bank payments
+
+Owners and accountants can call `POST .../reconciliation/refresh` after a bank sync. The first matching rule creates review cases only for posted USD inflows. It suggests issued invoices with the exact amount when the bank date falls between issuance and 30 days after the due date. A description containing the invoice number scores `1.0000`; an amount/date-only candidate scores `0.8500`.
+
+Use `GET .../reconciliation/cases?status=OPEN` for the queue and `GET .../reconciliation/cases/{id}` for candidates and decision history. All organization members can read the queue. An owner or accountant can send an invoice ID plus the current case version to `POST .../match`, or send the version to `POST .../ignore`.
+
+Refreshing never settles an invoice automatically. An accepted match locks and rechecks the case, bank transaction, and invoice, then records a balanced `BANK_PAYMENT` journal: debit CASH and credit RECEIVABLES. The invoice moves to PAID in the same transaction. Imported bank history and existing journals remain immutable, and the review decision is append-only.

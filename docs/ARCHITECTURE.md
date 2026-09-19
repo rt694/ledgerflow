@@ -1,6 +1,6 @@
 # Architecture sketch
 
-The backend foundation, identity, organizations, customers, invoices, the invoice ledger, and local Stripe payment code are in place. The account-backed sandbox check is pending. The other business domains, frontend, provider integrations, and background processing below are still planned.
+The backend foundation, business records, ledger, local Stripe/Plaid flows, and first reconciliation rule are in place. The account-backed sandbox checks are pending. The frontend and background processing below are still planned.
 
 ## Runtime shape
 
@@ -34,7 +34,7 @@ The outbox later solves the database/Kafka dual-write gap: commit business state
 
 ## Proposed repository structure
 
-The backend includes identity, organization, customer, invoicing, ledger, payment, and shared packages. The other domain packages/services below are planned.
+The backend includes identity, organization, customer, invoicing, ledger, payment, banking, reconciliation, and shared packages. The other domain packages/services below are planned.
 
 ```text
 ledgerflow/
