@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-09-18.
+Updated: 2026-09-19.
 
 ## Done so far
 
@@ -19,15 +19,16 @@ Updated: 2026-09-18.
 - Local key generation and a repeatable synthetic HTTP smoke workflow.
 - Plaid Sandbox Link tokens, idempotent public-token exchange, encrypted access tokens, and role-scoped bank reads.
 - Cursor-based account and transaction sync with add/change/remove history and verified Plaid webhooks.
+- Reconciliation cases, explainable exact-match candidates, reviewed decisions, and bank-payment journals.
 
 ## What I've checked
 
-- `./mvnw verify` passed: formatting, compilation, JAR packaging, 30 focused tests, and 70 PostgreSQL integration tests. No skips.
+- `./mvnw verify` passed: formatting, compilation, JAR packaging, 30 focused tests, and 76 PostgreSQL integration tests. No skips.
 - Real signed-token tests reject tampering, expired tokens, wrong issuers/audiences, missing required claims, future issue times, and invalid subjects.
 - Negative tests cover cross-organization reads/writes, wrong roles, membership removal, and ignored JWT role claims.
 - Invoice tests cover rounding, transitions, fixed snapshots, stale versions, duplicate numbers, and rollback after a database conflict.
 - Concurrent requests preserve one invoice-edit winner and at least one organization owner.
-- Flyway applies/validates all six migrations; a fresh connection finds the same migration history.
+- Flyway applies/validates all seven migrations; a fresh connection finds the same migration history.
 - Started the packaged app against the local Compose database and ran the synthetic workflow over HTTP.
 - Checked live health/OpenAPI and bearer authentication in Swagger, documentation links, and exclusions for credentials/build output.
 
@@ -37,17 +38,19 @@ Stripe SDK contract checks use a local HTTP fixture server; payment integration 
 
 Plaid tests use synthetic provider responses with real PostgreSQL. They cover authenticated token encryption, idempotent exchange, role and tenant boundaries, cursor restarts, account balances, transaction adds/changes/removals, append-only history, and ES256 webhook body verification.
 
-No real financial data, account-backed Stripe calls, or performance measurements have been used.
+Reconciliation tests cover exact amount/reference scoring, pending and outgoing exclusions, idempotent refresh, explicit and concurrent review, stale decisions, role and tenant boundaries, single settlement, balanced cash postings, and append-only decision history.
+
+No real financial data, account-backed Stripe or Plaid calls, or performance measurements have been used.
 
 ## In progress
 
-Stripe Sandbox code is implemented: intent reservations and stable provider keys, signed webhooks, PAID invoice settlement, payment/refund/dispute journals, cancellation, and one full-refund request per payment. Verified external partial refunds are handled too. Plaid Sandbox code now connects fake banks and synchronizes account and transaction changes.
+Stripe Sandbox code is implemented: intent reservations and stable provider keys, signed webhooks, PAID invoice settlement, payment/refund/dispute journals, cancellation, and one full-refund request per payment. Verified external partial refunds are handled too. Plaid Sandbox code connects fake banks and synchronizes account and transaction changes. Reconciliation now suggests exact incoming USD matches and posts reviewed bank receipts to CASH without changing imported bank history.
 
 The account-backed smoke checks are pending because Stripe and Plaid credentials are not configured locally. Follow [payment setup](docs/STRIPE_SANDBOX.md) and [fake bank setup](docs/PLAID_SANDBOX.md). Both providers default to disabled; no mock provider is used in the running app.
 
 ## Up next
 
-Finish both account-backed Sandbox checks, then build deterministic reconciliation between bank transactions and ledger activity. Automated provider-request recovery, fees/payouts, credit notes, and additional payment attempts are not implemented.
+Finish both account-backed Sandbox checks, then expand reconciliation to ambiguity handling, partial payments, and provider payout allocation. Automated provider-request recovery, fees/payouts, credit notes, and additional payment attempts are not implemented.
 
 The other ideas are in the [build checklist](docs/ROADMAP.md). The [API walkthrough](docs/API_WALKTHROUGH.md) explains what works now.
 

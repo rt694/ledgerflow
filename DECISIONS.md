@@ -113,3 +113,11 @@ Permanent access tokens are encrypted with AES-256-GCM before they are saved. Ev
 Plaid's generated SDK exposes amounts as `Double`, so the adapter immediately converts them with `BigDecimal.valueOf`; all internal models and PostgreSQL columns use decimal values. Webhooks verify Plaid's ES256 JWT key details, signature, five-minute issue window, and exact raw request-body hash before parsing the event. Transaction webhooks run the same sync path, and Item errors move a connection into a reconnectable state.
 
 See [fake bank setup](docs/PLAID_SANDBOX.md) for the account-backed check and the remaining public-callback requirement.
+
+## First reconciliation rule
+
+Reconciliation starts with one narrow rule that is easy to explain and test. A posted USD bank inflow can suggest issued invoices with the exact amount from the invoice's issue date through 30 days after its due date. The score is 0.85 for amount/date and 1.00 when the bank description also contains the invoice number. Suggestions never create accounting entries by themselves.
+
+Owners and accountants make the final match or ignore decision using the current case version. Acceptance locks and rechecks the case, bank transaction, and invoice before it posts a new `BANK_PAYMENT` journal from RECEIVABLES to CASH and marks the invoice paid. The bank import, original invoice journal, and earlier decisions are left intact. A partial unique constraint stops one invoice from being settled by two cases, while a bank-transaction journal link stops one bank item from posting twice.
+
+I did not assign Stripe payouts to organizations yet. One platform Stripe account can combine activity from several LedgerFlow organizations into one payout, so placing the whole deposit in one tenant would be incorrect. That needs an explicit Stripe Connect or payout-allocation design before fees and payouts enter the ledger.
