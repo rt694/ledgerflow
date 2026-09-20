@@ -81,6 +81,14 @@ class PaymentService {
               }
               if (!snapshot.status().equals("ISSUED"))
                 throw BusinessException.conflict("Only issued invoices can start payments.");
+              if (jdbc.queryForObject(
+                      "SELECT count(*) FROM ledgerflow.journal_transactions WHERE organization_id=? AND invoice_id=? AND operation='BANK_PAYMENT'",
+                      Integer.class,
+                      org,
+                      invoice)
+                  > 0)
+                throw BusinessException.conflict(
+                    "This invoice already has a reviewed bank payment.");
               long cents = cents(snapshot.total());
               if (cents < 50 || cents > 99999999)
                 throw BusinessException.invalid(

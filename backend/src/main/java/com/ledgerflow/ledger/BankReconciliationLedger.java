@@ -44,6 +44,14 @@ public class BankReconciliationLedger {
     entry(organizationId, journal, "RECEIVABLES", BigDecimal.ZERO, amount);
   }
 
+  public BigDecimal receivableBalance(UUID organizationId, UUID invoiceId) {
+    return jdbc.queryForObject(
+        "SELECT coalesce(sum(e.debit-e.credit),0) FROM ledgerflow.journal_entries e JOIN ledgerflow.journal_transactions j ON j.organization_id=e.organization_id AND j.id=e.journal_id WHERE j.organization_id=? AND j.invoice_id=? AND e.account_code='RECEIVABLES'",
+        BigDecimal.class,
+        organizationId,
+        invoiceId);
+  }
+
   private void entry(
       UUID organizationId, UUID journalId, String account, BigDecimal debit, BigDecimal credit) {
     jdbc.update(
