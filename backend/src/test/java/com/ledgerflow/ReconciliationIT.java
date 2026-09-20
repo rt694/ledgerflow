@@ -7,6 +7,7 @@ import static org.springframework.http.HttpMethod.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ledgerflow.banking.PlaidGateway;
+import com.ledgerflow.payment.StripeGateway;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
@@ -24,10 +25,14 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
       "ledgerflow.plaid.client-id=fixture-client",
       "ledgerflow.plaid.secret=fixture-secret",
       "ledgerflow.plaid.webhook-url=https://example.test/api/v1/webhooks/plaid",
-      "ledgerflow.plaid.token-encryption-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+      "ledgerflow.plaid.token-encryption-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+      "ledgerflow.stripe.enabled=true",
+      "ledgerflow.stripe.secret-key=sk_test_fixture",
+      "ledgerflow.stripe.webhook-secret=whsec_fixture"
     })
 class ReconciliationIT extends IntegrationTestSupport {
   @MockitoBean PlaidGateway plaid;
+  @MockitoBean StripeGateway stripe;
   @Autowired JdbcTemplate jdbc;
 
   record Fixture(TestUser owner, String organization, String invoice, String connection) {}
@@ -45,6 +50,34 @@ class ReconciliationIT extends IntegrationTestSupport {
       throws Exception {
     var owner = register("reconciliation-owner");
     String organization = organization(owner);
+    String invoice = invoice(organization, owner, invoiceNumber, amount);
+    String connection = connect(organization, owner);
+    var account =
+        new PlaidGateway.Account(
+            "checking-1",
+            "Checking",
+            "Synthetic Checking",
+            "0000",
+            "depository",
+            "checking",
+            "USD",
+            new BigDecimal("2000.00"),
+            new BigDecimal("2000.00"));
+    when(plaid.sync(anyString(), isNull()))
+        .thenReturn(
+            new PlaidGateway.SyncPage(
+                List.of(account), transactions, List.of(), List.of(), "cursor-1", false));
+    send(
+        POST,
+        base(organization) + "/banking/connections/" + connection + "/sync",
+        owner.token(),
+        null,
+        200);
+    return new Fixture(owner, organization, invoice, connection);
+  }
+
+  String invoice(String organization, TestUser owner, String invoiceNumber, String amount)
+      throws Exception {
     String customer =
         send(
                 POST,
@@ -88,29 +121,7 @@ class ReconciliationIT extends IntegrationTestSupport {
         owner.token(),
         Map.of("version", 0),
         200);
-    String connection = connect(organization, owner);
-    var account =
-        new PlaidGateway.Account(
-            "checking-1",
-            "Checking",
-            "Synthetic Checking",
-            "0000",
-            "depository",
-            "checking",
-            "USD",
-            new BigDecimal("2000.00"),
-            new BigDecimal("2000.00"));
-    when(plaid.sync(anyString(), isNull()))
-        .thenReturn(
-            new PlaidGateway.SyncPage(
-                List.of(account), transactions, List.of(), List.of(), "cursor-1", false));
-    send(
-        POST,
-        base(organization) + "/banking/connections/" + connection + "/sync",
-        owner.token(),
-        null,
-        200);
-    return new Fixture(owner, organization, invoice, connection);
+    return invoice;
   }
 
   String connect(String organization, TestUser owner) throws Exception {
@@ -194,7 +205,10 @@ class ReconciliationIT extends IntegrationTestSupport {
             Map.of("invoiceId", fixture.invoice(), "version", 0),
             200);
     assertThat(matched.at("/reconciliationCase/status").asText()).isEqualTo("MATCHED");
+    assertThat(matched.at("/reconciliationCase/matchedAmount").decimalValue())
+        .isEqualByComparingTo("125.00");
     assertThat(matched.at("/decisions/0/decision").asText()).isEqualTo("MATCHED");
+    assertThat(matched.at("/decisions/0/amount").decimalValue()).isEqualByComparingTo("125.00");
     assertThat(
             send(
                     GET,
@@ -229,6 +243,170 @@ class ReconciliationIT extends IntegrationTestSupport {
                         "DELETE FROM ledgerflow.reconciliation_decisions WHERE case_id=?",
                         UUID.fromString(value.get("id").asText()))))
         .isNotNull();
+  }
+
+  @Test
+  void referencedPartialPaymentsReduceTheBalanceAndFinalPaymentSettlesInvoice() throws Exception {
+    var fixture =
+        fixture(
+            "REC-PART",
+            "100.00",
+            List.of(
+                bankTransaction("bank-part-1", "First payment REC-PART", "-40.00", false),
+                bankTransaction("bank-part-2", "Final payment REC-PART", "-60.00", false)));
+    send(
+        POST,
+        base(fixture.organization()) + "/reconciliation/refresh",
+        fixture.owner().token(),
+        null,
+        200);
+    JsonNode open =
+        send(
+            GET,
+            base(fixture.organization()) + "/reconciliation/cases?status=OPEN",
+            fixture.owner().token(),
+            null,
+            200);
+    JsonNode first = findCase(open, "First payment REC-PART");
+    JsonNode firstDetail =
+        send(
+            GET,
+            base(fixture.organization()) + "/reconciliation/cases/" + first.get("id").asText(),
+            fixture.owner().token(),
+            null,
+            200);
+    assertThat(firstDetail.at("/candidates/0/rule").asText()).isEqualTo("REFERENCE_PARTIAL_AMOUNT");
+    assertThat(firstDetail.at("/candidates/0/outstandingBalance").decimalValue())
+        .isEqualByComparingTo("100.00");
+    send(
+        POST,
+        base(fixture.organization())
+            + "/reconciliation/cases/"
+            + first.get("id").asText()
+            + "/match",
+        fixture.owner().token(),
+        Map.of("invoiceId", fixture.invoice(), "version", 0),
+        200);
+    assertThat(invoiceStatus(fixture)).isEqualTo("ISSUED");
+    assertThat(receivableBalance(fixture.invoice())).isEqualByComparingTo("60.00");
+    var cardAttempt =
+        mvc.perform(
+                MockMvcRequestBuilders.post(base(fixture.organization()) + "/payments")
+                    .header("Authorization", "Bearer " + fixture.owner().token())
+                    .header("Idempotency-Key", "card-after-bank")
+                    .contentType("application/json")
+                    .content(json.writeValueAsString(Map.of("invoiceId", fixture.invoice()))))
+            .andReturn()
+            .getResponse();
+    assertThat(cardAttempt.getStatus()).isEqualTo(409);
+    verifyNoInteractions(stripe);
+
+    send(
+        POST,
+        base(fixture.organization()) + "/reconciliation/refresh",
+        fixture.owner().token(),
+        null,
+        200);
+    open =
+        send(
+            GET,
+            base(fixture.organization()) + "/reconciliation/cases?status=OPEN",
+            fixture.owner().token(),
+            null,
+            200);
+    JsonNode second = findCase(open, "Final payment REC-PART");
+    JsonNode secondDetail =
+        send(
+            GET,
+            base(fixture.organization()) + "/reconciliation/cases/" + second.get("id").asText(),
+            fixture.owner().token(),
+            null,
+            200);
+    assertThat(secondDetail.at("/candidates/0/rule").asText())
+        .isEqualTo("REFERENCE_AND_EXACT_AMOUNT");
+    send(
+        POST,
+        base(fixture.organization())
+            + "/reconciliation/cases/"
+            + second.get("id").asText()
+            + "/match",
+        fixture.owner().token(),
+        Map.of("invoiceId", fixture.invoice(), "version", 0),
+        200);
+    assertThat(invoiceStatus(fixture)).isEqualTo("PAID");
+    assertThat(receivableBalance(fixture.invoice())).isEqualByComparingTo("0.00");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM ledgerflow.journal_transactions WHERE operation='BANK_PAYMENT' AND invoice_id=?",
+                Integer.class,
+                UUID.fromString(fixture.invoice())))
+        .isEqualTo(2);
+  }
+
+  @Test
+  void multipleExactMatchesAreMarkedForReviewAndRequireAnExplicitChoice() throws Exception {
+    var fixture =
+        fixture(
+            "REC-AMB-A",
+            "80.00",
+            List.of(bankTransaction("bank-ambiguous", "Customer transfer", "-80.00", false)));
+    String otherInvoice = invoice(fixture.organization(), fixture.owner(), "REC-AMB-B", "80.00");
+    JsonNode value = refresh(fixture);
+    assertThat(value.get("candidateCount").asInt()).isEqualTo(2);
+    assertThat(value.get("reviewState").asText()).isEqualTo("MULTIPLE_CANDIDATES");
+    JsonNode detail =
+        send(
+            GET,
+            base(fixture.organization()) + "/reconciliation/cases/" + value.get("id").asText(),
+            fixture.owner().token(),
+            null,
+            200);
+    assertThat(detail.get("candidates")).hasSize(2);
+    send(
+        POST,
+        base(fixture.organization())
+            + "/reconciliation/cases/"
+            + value.get("id").asText()
+            + "/match",
+        fixture.owner().token(),
+        Map.of("invoiceId", otherInvoice, "version", 0),
+        200);
+    assertThat(invoiceStatus(fixture.organization(), fixture.owner(), otherInvoice))
+        .isEqualTo("PAID");
+    assertThat(invoiceStatus(fixture)).isEqualTo("ISSUED");
+  }
+
+  @Test
+  void activeCardAttemptBlocksAStaleBankSuggestion() throws Exception {
+    var fixture =
+        fixture(
+            "REC-CARD",
+            "70.00",
+            List.of(bankTransaction("bank-card", "REC-CARD", "-70.00", false)));
+    JsonNode value = refresh(fixture);
+    jdbc.update(
+        "INSERT INTO ledgerflow.payments(id,organization_id,invoice_id,currency,amount,idempotency_hash,state,created_at) VALUES (?,?,?,'USD',70.00,?,'PENDING',now())",
+        UUID.randomUUID(),
+        UUID.fromString(fixture.organization()),
+        UUID.fromString(fixture.invoice()),
+        UUID.randomUUID().toString().replace("-", ""));
+    send(
+        POST,
+        base(fixture.organization())
+            + "/reconciliation/cases/"
+            + value.get("id").asText()
+            + "/match",
+        fixture.owner().token(),
+        Map.of("invoiceId", fixture.invoice(), "version", 0),
+        409);
+    JsonNode refreshed =
+        send(
+            POST,
+            base(fixture.organization()) + "/reconciliation/refresh",
+            fixture.owner().token(),
+            null,
+            200);
+    assertThat(refreshed.get("candidates").asInt()).isZero();
   }
 
   @Test
@@ -287,7 +465,8 @@ class ReconciliationIT extends IntegrationTestSupport {
   }
 
   @Test
-  void unmatchedPendingAndOutgoingTransactionsStayOutOfTheQueue() throws Exception {
+  void unmatchedPartialOverpaymentPendingAndOutgoingTransactionsHaveNoCandidates()
+      throws Exception {
     var fixture =
         fixture(
             "REC-200",
@@ -295,7 +474,9 @@ class ReconciliationIT extends IntegrationTestSupport {
             List.of(
                 bankTransaction("outgoing", "Purchase", "50.00", false),
                 bankTransaction("pending", "Pending incoming", "-50.00", true),
-                bankTransaction("different", "Different incoming", "-51.00", false)));
+                bankTransaction("partial", "Unlabelled partial", "-25.00", false),
+                bankTransaction("sub-cent", "REC-200 sub-cent", "-25.001", false),
+                bankTransaction("overpayment", "REC-200 too much", "-51.00", false)));
     JsonNode result =
         send(
             POST,
@@ -303,7 +484,7 @@ class ReconciliationIT extends IntegrationTestSupport {
             fixture.owner().token(),
             null,
             200);
-    assertThat(result.get("newCases").asInt()).isOne();
+    assertThat(result.get("newCases").asInt()).isEqualTo(3);
     assertThat(result.get("candidates").asInt()).isZero();
   }
 
@@ -410,5 +591,29 @@ class ReconciliationIT extends IntegrationTestSupport {
                 Integer.class,
                 UUID.fromString(fixture.invoice())))
         .isOne();
+  }
+
+  JsonNode findCase(JsonNode cases, String description) {
+    for (JsonNode value : cases) {
+      if (description.equals(value.get("bankDescription").asText())) return value;
+    }
+    throw new AssertionError("Missing reconciliation case for " + description);
+  }
+
+  String invoiceStatus(Fixture fixture) throws Exception {
+    return invoiceStatus(fixture.organization(), fixture.owner(), fixture.invoice());
+  }
+
+  String invoiceStatus(String organization, TestUser owner, String invoice) throws Exception {
+    return send(GET, base(organization) + "/invoices/" + invoice, owner.token(), null, 200)
+        .get("status")
+        .asText();
+  }
+
+  BigDecimal receivableBalance(String invoice) {
+    return jdbc.queryForObject(
+        "SELECT sum(e.debit-e.credit) FROM ledgerflow.journal_entries e JOIN ledgerflow.journal_transactions j ON j.id=e.journal_id WHERE j.invoice_id=? AND e.account_code='RECEIVABLES'",
+        BigDecimal.class,
+        UUID.fromString(invoice));
   }
 }

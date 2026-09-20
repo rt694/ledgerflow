@@ -80,7 +80,7 @@ Within each domain, use `api`, `application`, `domain`, and `infrastructure` sub
 - Browser token storage, refresh/logout, and signing key rotation when adding the frontend or tightening security.
 - More currencies, additional payment attempts, fees/payouts, and credit notes. USD, per-line tax rounding, and DRAFT/ISSUED/PAID/VOID are implemented.
 - Manual journals, a configurable chart of accounts, accounting periods, and replayable idempotency contracts as workflows expand.
-- Reconciliation rules, tolerances, and explanation of confidence scores when adding reconciliation.
+- Reconciliation tolerances, remittance references beyond invoice numbers, and safe provider payout allocation.
 - Event partition keys, ordering, compatibility, and retry budgets when adding events.
 - Whether measurements justify service extraction or Redis beyond rate limiting.
 

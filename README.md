@@ -2,7 +2,7 @@
 
 I'm building LedgerFlow to learn how payments, invoices, and bank reconciliation fit together. The idea is a small-business app where I can create invoices, simulate payments, and track the money in a double-entry ledger.
 
-The backend now supports users, organizations, customers, invoices, payments, fake bank connections, and a review queue for incoming bank payments. I can connect a Plaid Sandbox bank, import transaction changes, review exact invoice suggestions, and post an accepted receipt into the double-entry ledger. Stripe and Plaid are tested locally; their account-backed checks wait for Sandbox credentials.
+The backend now supports users, organizations, customers, invoices, payments, fake bank connections, and a review queue for incoming bank payments. I can connect a Plaid Sandbox bank, import transaction changes, review exact or referenced partial-payment suggestions, and post an accepted receipt into the double-entry ledger. Stripe and Plaid are tested locally; their account-backed checks wait for Sandbox credentials.
 
 ## What I'm using
 
@@ -25,10 +25,10 @@ I'm starting with one backend organized by business domain. That lets me learn t
 - USD accounts, immutable balanced journals, exact reversals, and derived balances
 - Test-only Stripe intents, signed webhooks, payment/refund retries, and payment/refund/dispute postings
 - Plaid Sandbox Link tokens, encrypted bank credentials, cursor sync, and verified webhooks
-- Reviewable exact bank-to-invoice matches with immutable cash journals and decision history
+- Reviewable exact and partial bank-to-invoice matches with visible ambiguity, immutable cash journals, and decision history
 - PostgreSQL migrations, health checks, validation, consistent errors, and local Swagger UI
 
-I'm expanding reconciliation rules and still need the account-backed Stripe and Plaid checks. A frontend dashboard follows after the review API settles down.
+I still need the account-backed Stripe and Plaid checks and a safe design for provider payouts. A frontend dashboard follows after the review API settles down.
 
 Everything uses fake data. This project won't handle real money or real bank credentials. Stripe/Plaid integrations will use sandboxes, and any AWS deployment comes after checking costs and getting approval.
 
@@ -81,7 +81,7 @@ From `backend/`, with Java 21 selected and Docker running:
 ./mvnw verify
 ```
 
-This checks Java formatting, compiles the app, runs 30 focused tests, packages an executable JAR, and runs 76 integration tests against isolated PostgreSQL through Testcontainers. Integration tests fail if Docker is unavailable rather than silently skipping.
+This checks Java formatting, compiles the app, runs 30 focused tests, packages an executable JAR, and runs 79 integration tests against isolated PostgreSQL through Testcontainers. Integration tests fail if Docker is unavailable rather than silently skipping.
 
 From the repository root, with the local app running, `python3 scripts/smoke-workflow.py` checks a synthetic registration-to-invoice workflow over HTTP without printing tokens.
 

@@ -22,7 +22,7 @@ class BackendFoundationIT extends IntegrationTestSupport {
                 "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'ledgerflow'",
                 Integer.class))
         .isEqualTo(1);
-    assertThat(flyway.info().applied()).hasSize(7);
+    assertThat(flyway.info().applied()).hasSize(8);
     assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     assertThat(flyway.migrate().migrationsExecuted).isZero();
   }
@@ -35,7 +35,7 @@ class BackendFoundationIT extends IntegrationTestSupport {
             .defaultSchema("public")
             .load();
     assertThat(fresh.migrate().migrationsExecuted).isZero();
-    assertThat(fresh.info().applied()).hasSize(7);
+    assertThat(fresh.info().applied()).hasSize(8);
   }
 
   @Test

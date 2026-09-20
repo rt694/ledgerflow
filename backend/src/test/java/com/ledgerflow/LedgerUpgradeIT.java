@@ -54,7 +54,7 @@ class LedgerUpgradeIT extends IntegrationTestSupport {
               .dataSource(url, postgres.getUsername(), postgres.getPassword())
               .defaultSchema("public")
               .load();
-      assertThat(flyway.migrate().migrationsExecuted).isEqualTo(4);
+      assertThat(flyway.migrate().migrationsExecuted).isEqualTo(5);
       assertThat(
               jdbc.queryForObject(
                   "SELECT count(*) FROM ledgerflow.journal_transactions", Integer.class))
