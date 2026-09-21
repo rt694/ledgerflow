@@ -1,5 +1,6 @@
 package com.ledgerflow.reconciliation;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.util.*;
@@ -45,6 +46,16 @@ public class ReconciliationController {
     return service.match(organizationId, actor(jwt), id, request.invoiceId(), request.version());
   }
 
+  @PostMapping("/cases/{id}/match-payout")
+  public ReconciliationService.Detail matchPayout(
+      @PathVariable UUID organizationId,
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody PayoutMatchRequest request) {
+    return service.matchPayout(
+        organizationId, actor(jwt), id, request.payoutId(), request.version());
+  }
+
   @PostMapping("/cases/{id}/ignore")
   public ReconciliationService.Detail ignore(
       @PathVariable UUID organizationId,
@@ -59,6 +70,9 @@ public class ReconciliationController {
   }
 
   public record MatchRequest(@NotNull UUID invoiceId, @NotNull @Min(0) Long version) {}
+
+  @Schema(name = "PayoutMatchRequest")
+  public record PayoutMatchRequest(@NotNull UUID payoutId, @NotNull @Min(0) Long version) {}
 
   public record VersionRequest(@NotNull @Min(0) Long version) {}
 }

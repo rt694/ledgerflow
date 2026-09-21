@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-09-20.
+Updated: 2026-09-21.
 
 ## Done so far
 
@@ -22,15 +22,16 @@ Updated: 2026-09-20.
 - Reconciliation cases, explainable exact and referenced partial-payment candidates, reviewed decisions, and bank-payment journals.
 - Verified Stripe payout allocations with exact gross, fee, and net amounts; mixed-organization batches are rejected.
 - Immutable payout journals move gross clearing into processing fees and payouts in transit.
+- Reviewed payout deposits move the exact net amount from payouts in transit into cash.
 
 ## What I've checked
 
-- `./mvnw verify` passed: formatting, compilation, JAR packaging, 31 focused tests, and 82 PostgreSQL integration tests. No skips.
+- `./mvnw verify` passed: formatting, compilation, JAR packaging, 31 focused tests, and 83 PostgreSQL integration tests. No skips.
 - Real signed-token tests reject tampering, expired tokens, wrong issuers/audiences, missing required claims, future issue times, and invalid subjects.
 - Negative tests cover cross-organization reads/writes, wrong roles, membership removal, and ignored JWT role claims.
 - Invoice tests cover rounding, transitions, fixed snapshots, stale versions, duplicate numbers, and rollback after a database conflict.
 - Concurrent requests preserve one invoice-edit winner and at least one organization owner.
-- Flyway applies/validates all nine migrations; a fresh connection finds the same migration history.
+- Flyway applies/validates all ten migrations; a fresh connection finds the same migration history.
 - Started the packaged app against the local Compose database and ran the synthetic workflow over HTTP.
 - Checked live health/OpenAPI and bearer authentication in Swagger, documentation links, and exclusions for credentials/build output.
 
@@ -40,19 +41,19 @@ Stripe SDK contract checks use a local HTTP fixture server; payment integration 
 
 Plaid tests use synthetic provider responses with real PostgreSQL. They cover authenticated token encryption, idempotent exchange, role and tenant boundaries, cursor restarts, account balances, transaction adds/changes/removals, append-only history, and ES256 webhook body verification.
 
-Reconciliation tests cover exact amount/reference scoring, referenced partial payments, visible ambiguity, pending and outgoing exclusions, overpayment rejection, idempotent refresh, explicit and concurrent review, stale decisions, role and tenant boundaries, balanced cash postings, and append-only decision history.
+Reconciliation tests cover exact amount/reference scoring, referenced partial payments, Stripe payout deposits, visible ambiguity, pending and outgoing exclusions, overpayment rejection, idempotent refresh, explicit and concurrent review, stale decisions, role and tenant boundaries, balanced cash postings, and append-only decision history.
 
 No real financial data, account-backed Stripe or Plaid calls, or performance measurements have been used.
 
 ## In progress
 
-Stripe Sandbox code is implemented: intent reservations and stable provider keys, signed webhooks, PAID invoice settlement, payment/refund/dispute journals, cancellation, one full-refund request per payment, and manual import of paid provider payouts. Payout import accepts only charge batches that resolve completely to one LedgerFlow organization, records Stripe fees, and moves the net into payouts in transit. Plaid Sandbox code connects fake banks and synchronizes account and transaction changes. Reconciliation explains empty, single, and ambiguous candidate sets and posts reviewed invoice receipts to CASH without changing imported bank history.
+Stripe Sandbox code is implemented: intent reservations and stable provider keys, signed webhooks, PAID invoice settlement, payment/refund/dispute journals, cancellation, one full-refund request per payment, and manual import of paid provider payouts. Payout import accepts only charge batches that resolve completely to one LedgerFlow organization, records Stripe fees, and moves the net into payouts in transit. Plaid Sandbox code connects fake banks and synchronizes account and transaction changes. Reconciliation explains empty, single, and ambiguous invoice or payout candidate sets. Reviewed invoice receipts move receivables into CASH, while reviewed payout deposits move payouts in transit into CASH without changing imported provider history.
 
 The account-backed smoke checks are pending because Stripe and Plaid credentials are not configured locally. Follow [payment setup](docs/STRIPE_SANDBOX.md) and [fake bank setup](docs/PLAID_SANDBOX.md). Both providers default to disabled; no mock provider is used in the running app.
 
 ## Up next
 
-Match an imported Stripe payout to its bank deposit so the net amount moves from payouts in transit to CASH only after review. Then finish both account-backed Sandbox checks. Automated provider-request recovery, payout reversals, non-charge payout activity, credit notes, and additional payment attempts are not implemented.
+Finish both account-backed Sandbox checks, then start the first frontend workflow around login, invoices, payments, and review. Automated provider-request recovery, payout reversals, non-charge payout activity, credit notes, and additional payment attempts are not implemented.
 
 The other ideas are in the [build checklist](docs/ROADMAP.md). The [API walkthrough](docs/API_WALKTHROUGH.md) explains what works now.
 

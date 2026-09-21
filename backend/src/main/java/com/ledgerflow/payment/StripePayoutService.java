@@ -48,6 +48,8 @@ class StripePayoutService {
       String currency,
       LocalDate arrivalDate,
       Instant importedAt,
+      UUID bankTransactionId,
+      Instant depositedAt,
       List<Allocation> allocations) {}
 
   record PayoutSummary(
@@ -59,6 +61,8 @@ class StripePayoutService {
       String currency,
       LocalDate arrivalDate,
       Instant importedAt,
+      UUID bankTransactionId,
+      Instant depositedAt,
       int allocationCount) {}
 
   record Allocation(
@@ -146,7 +150,7 @@ class StripePayoutService {
         status -> {
           access.require(organizationId, actor);
           return jdbc.query(
-              "SELECT p.*,(SELECT count(*) FROM ledgerflow.stripe_payout_allocations a WHERE a.payout_id=p.id) allocation_count FROM ledgerflow.stripe_payouts p WHERE p.organization_id=? ORDER BY p.arrival_date DESC,p.id LIMIT 100",
+              "SELECT p.*,(SELECT count(*) FROM ledgerflow.stripe_payout_allocations a WHERE a.payout_id=p.id) allocation_count,(SELECT j.bank_transaction_id FROM ledgerflow.journal_transactions j WHERE j.payout_id=p.id AND j.operation='PAYOUT_DEPOSIT') bank_transaction_id,(SELECT j.posted_at FROM ledgerflow.journal_transactions j WHERE j.payout_id=p.id AND j.operation='PAYOUT_DEPOSIT') deposited_at FROM ledgerflow.stripe_payouts p WHERE p.organization_id=? ORDER BY p.arrival_date DESC,p.id LIMIT 100",
               (rs, row) ->
                   new PayoutSummary(
                       rs.getObject("id", UUID.class),
@@ -157,6 +161,8 @@ class StripePayoutService {
                       rs.getString("currency"),
                       rs.getObject("arrival_date", LocalDate.class),
                       rs.getTimestamp("imported_at").toInstant(),
+                      rs.getObject("bank_transaction_id", UUID.class),
+                      instant(rs, "deposited_at"),
                       rs.getInt("allocation_count")),
               organizationId);
         });
@@ -251,7 +257,7 @@ class StripePayoutService {
     var header =
         jdbc
             .query(
-                "SELECT * FROM ledgerflow.stripe_payouts WHERE organization_id=? AND id=?",
+                "SELECT p.*,(SELECT j.bank_transaction_id FROM ledgerflow.journal_transactions j WHERE j.payout_id=p.id AND j.operation='PAYOUT_DEPOSIT') bank_transaction_id,(SELECT j.posted_at FROM ledgerflow.journal_transactions j WHERE j.payout_id=p.id AND j.operation='PAYOUT_DEPOSIT') deposited_at FROM ledgerflow.stripe_payouts p WHERE p.organization_id=? AND p.id=?",
                 (rs, row) ->
                     new PayoutHeader(
                         rs.getObject("id", UUID.class),
@@ -261,7 +267,9 @@ class StripePayoutService {
                         rs.getBigDecimal("fee"),
                         rs.getString("currency"),
                         rs.getObject("arrival_date", LocalDate.class),
-                        rs.getTimestamp("imported_at").toInstant()),
+                        rs.getTimestamp("imported_at").toInstant(),
+                        rs.getObject("bank_transaction_id", UUID.class),
+                        instant(rs, "deposited_at")),
                 organizationId,
                 id)
             .stream()
@@ -289,7 +297,14 @@ class StripePayoutService {
         header.currency(),
         header.arrivalDate(),
         header.importedAt(),
+        header.bankTransactionId(),
+        header.depositedAt(),
         allocations);
+  }
+
+  private Instant instant(ResultSet rs, String column) throws SQLException {
+    Timestamp value = rs.getTimestamp(column);
+    return value == null ? null : value.toInstant();
   }
 
   private BigDecimal money(long cents) {
@@ -316,5 +331,7 @@ class StripePayoutService {
       BigDecimal fee,
       String currency,
       LocalDate arrivalDate,
-      Instant importedAt) {}
+      Instant importedAt,
+      UUID bankTransactionId,
+      Instant depositedAt) {}
 }
