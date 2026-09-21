@@ -1,5 +1,7 @@
 package com.ledgerflow.payment;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,6 +18,8 @@ public interface StripeGateway {
 
   Dispute retrieveDispute(String id);
 
+  Payout retrievePayout(String id);
+
   record Intent(
       String id,
       long amount,
@@ -29,4 +33,22 @@ public interface StripeGateway {
 
   record Dispute(
       String id, String intent, long amount, String currency, String status, boolean live) {}
+
+  record Payout(
+      String id,
+      long amount,
+      String currency,
+      String status,
+      boolean live,
+      LocalDate arrivalDate,
+      List<PayoutLine> lines) {}
+
+  record PayoutLine(
+      String balanceTransactionId,
+      String type,
+      String intent,
+      long gross,
+      long fee,
+      long net,
+      String currency) {}
 }

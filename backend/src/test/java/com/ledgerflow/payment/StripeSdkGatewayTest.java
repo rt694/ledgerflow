@@ -14,7 +14,9 @@ class StripeSdkGatewayTest {
   HttpServer server;
   AtomicReference<String> body = new AtomicReference<>(),
       idempotency = new AtomicReference<>(),
-      path = new AtomicReference<>();
+      path = new AtomicReference<>(),
+      query = new AtomicReference<>();
+  Map<String, String> responses = new HashMap<>();
   String response;
   int code = 200;
   StripeSdkGateway gateway;
@@ -26,9 +28,11 @@ class StripeSdkGatewayTest {
         "/",
         request -> {
           path.set(request.getRequestURI().getPath());
+          query.set(request.getRequestURI().getRawQuery());
           body.set(new String(request.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
           idempotency.set(request.getRequestHeaders().getFirst("Idempotency-Key"));
-          byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+          byte[] bytes =
+              responses.getOrDefault(path.get(), response).getBytes(StandardCharsets.UTF_8);
           request.getResponseHeaders().set("Content-Type", "application/json");
           request.sendResponseHeaders(code, bytes.length);
           try (var output = request.getResponseBody()) {
@@ -97,5 +101,31 @@ class StripeSdkGatewayTest {
     assertThatThrownBy(() -> gateway.retrieve("pi_fixture"))
         .isInstanceOf(com.ledgerflow.shared.api.BusinessException.class)
         .hasMessageNotContaining("sensitive-provider-detail");
+  }
+
+  @Test
+  void payoutRetrievalIncludesExpandedChargeOwnershipAndExactFees() {
+    responses.put(
+        "/v1/payouts/po_fixture",
+        "{\"id\":\"po_fixture\",\"object\":\"payout\",\"amount\":9700,\"currency\":\"usd\",\"status\":\"paid\",\"livemode\":false,\"arrival_date\":1789948800}");
+    responses.put(
+        "/v1/balance_transactions",
+        "{\"object\":\"list\",\"data\":[{\"id\":\"txn_fixture\",\"object\":\"balance_transaction\",\"amount\":10000,\"fee\":300,\"net\":9700,\"currency\":\"usd\",\"type\":\"charge\",\"source\":{\"id\":\"ch_fixture\",\"object\":\"charge\",\"payment_intent\":\"pi_fixture\"}}],\"has_more\":false,\"url\":\"/v1/balance_transactions\"}");
+    var result = gateway.retrievePayout("po_fixture");
+    assertThat(result.amount()).isEqualTo(9700);
+    assertThat(result.arrivalDate()).isEqualTo(java.time.LocalDate.of(2026, 9, 21));
+    assertThat(result.lines())
+        .singleElement()
+        .satisfies(
+            line -> {
+              assertThat(line.balanceTransactionId()).isEqualTo("txn_fixture");
+              assertThat(line.intent()).isEqualTo("pi_fixture");
+              assertThat(line.gross()).isEqualTo(10000);
+              assertThat(line.fee()).isEqualTo(300);
+              assertThat(line.net()).isEqualTo(9700);
+            });
+    assertThat(path.get()).isEqualTo("/v1/balance_transactions");
+    assertThat(URLDecoder.decode(query.get(), StandardCharsets.UTF_8))
+        .contains("payout=po_fixture", "expand[0]=data.source");
   }
 }

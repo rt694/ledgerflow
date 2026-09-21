@@ -4,7 +4,7 @@ I added the Stripe integration locally and tested it with signed fixtures, Postg
 
 ## Local setup
 
-Create or select a sandbox in the [Stripe dashboard](https://dashboard.stripe.com/) and copy its test secret key into the repository's ignored `.env`. The key must start with `sk_test_` or `rk_test_`; live keys are rejected even when payments are disabled. A restricted key needs payment-intent, refund, dispute, and charge permissions. Do not put credentials in this document or chat.
+Create or select a sandbox in the [Stripe dashboard](https://dashboard.stripe.com/) and copy its test secret key into the repository's ignored `.env`. The key must start with `sk_test_` or `rk_test_`; live keys are rejected even when payments are disabled. A restricted key needs payment-intent, refund, dispute, charge, payout, and balance-transaction read permissions. Do not put credentials in this document or chat.
 
 Install the [Stripe CLI](https://docs.stripe.com/stripe-cli). On this development machine, version 1.51.0 is already installed in `~/.local/bin` and verified against the official release checksum. If your terminal cannot find it, run `export PATH="$HOME/.local/bin:$PATH"`. Then run these in a separate terminal from the repository root:
 
@@ -49,9 +49,19 @@ Use `POST .../payments/{id}/cancel` to cancel an unpaid intent. Its stable provi
 
 Use `POST .../payments/{id}/refunds` with a new required `Idempotency-Key` to request one full refund. The 202 response is an accepted request, not proof of ledger completion. Retry with the same key. Only a successful refund webhook moves money; pending/failed refunds do not. There is no second full-refund request or partial-refund request API. Verified partial refunds created in Stripe are supported by the webhook handler and reopen the appropriate receivable.
 
+For a paid test payout, call `POST .../stripe-payouts/import` as an owner or accountant:
+
+```json
+{"providerPayoutId":"po_replace_me"}
+```
+
+The payout ID itself is the retry key. LedgerFlow retrieves the payout and its balance transactions from Stripe, rather than trusting amounts supplied by the caller. It currently accepts charge-only payouts when every charge maps to a completed local payment in the requested organization. Mixed-organization payouts, unknown charges, refunds or adjustments inside the payout, live-mode data, duplicate payment allocations, and totals that do not balance are rejected atomically. This narrow rule avoids assigning a shared platform payout to the wrong tenant. List saved payouts at `GET .../stripe-payouts` and inspect allocations at `GET .../stripe-payouts/{id}`.
+
 ## Money and event handling
 
-A successful payment debits STRIPE_CLEARING and credits RECEIVABLES. A successful refund does the opposite; it doesn't cancel revenue. A dispute-created event records notification history; `funds_withdrawn` debits receivables/credits clearing, and `funds_reinstated` restores them. Dispute fees, payouts, revenue credit notes, and dispute evidence submissions aren't implemented.
+A successful payment debits STRIPE_CLEARING and credits RECEIVABLES. A successful refund does the opposite; it doesn't cancel revenue. A dispute-created event records notification history; `funds_withdrawn` debits receivables/credits clearing, and `funds_reinstated` restores them.
+
+A verified payout credits STRIPE_CLEARING for each gross charge, debits PROCESSING_FEES for Stripe's fee, and debits PAYOUTS_IN_TRANSIT for the net. It does not debit CASH yet because the imported Stripe report is separate from the bank statement. Matching the payout to its bank deposit is the next reconciliation step. Payout reversals, payout lines for refunds or adjustments, revenue credit notes, dispute fees, and dispute evidence submissions aren't implemented.
 
 Webhook authentication checks the raw request body with the Stripe SDK, a five-minute signature tolerance, and a future-time guard. Live-mode events are rejected. The handler retrieves current Stripe objects instead of trusting stale snapshots, verifies amounts/currency and organization/invoice/payment metadata, and stores only event identifiers/type/payment/time. Raw events and card details aren't stored.
 
@@ -65,5 +75,7 @@ Provider retrieval happens before the short database transaction. Invoice settle
 - Why do external API calls stay outside database transactions?
 - Why do both event IDs and business-object references need deduplication?
 - Why is a Stripe clearing balance different from cash in a bank?
+- Why is a paid provider payout recorded in transit before the bank deposit is reviewed?
+- Why must every payout line resolve to the same LedgerFlow organization before anything posts?
 - Why does a payment refund reopen receivables without reducing revenue?
 - What happens if Stripe succeeds but the client never receives the response?

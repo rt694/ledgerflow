@@ -89,7 +89,7 @@ Try a protected request without a token (401), a different user's organization (
 
 ## Inspect the ledger
 
-Use `GET .../ledger/accounts` to see the five USD accounts and their cumulative debits/credits. `debitMinusCredit` is a signed net amount: receivables normally show positive values, revenue and tax payable negative values. STRIPE_CLEARING tracks gross card collections and reversals. CASH stays zero until bank payouts are built. These are derived totals, not editable balance fields.
+Use `GET .../ledger/accounts` to see the seven USD accounts and their cumulative debits/credits. `debitMinusCredit` is a signed net amount: receivables, processing fees, payouts in transit, and cash normally show positive values, while revenue and tax payable normally show negative values. STRIPE_CLEARING tracks gross card collections and reversals. These are derived totals, not editable balance fields.
 
 Use `GET .../ledger/journals?page=0&size=20` for posted transactions, then `GET .../ledger/journals/{id}` for entries. Journal lists sort by posting time and ID. All organization members can read; invoice issue/void permissions still apply. There are no journal update/delete or manual posting endpoints.
 
@@ -106,6 +106,12 @@ For the 64.92 invoice above, issuance records:
 A draft has no journal. Voiding an issued invoice swaps every debit/credit in a new journal linked by `reversesId`; the original stays intact. Draft voids and zero-dollar invoices have no monetary postings. Successful issuance/voiding commits the state change and journal together. Duplicate or concurrent calls with an old version return 409 and cannot post twice; read the invoice to resolve an uncertain retry. There is no replayable HTTP idempotency-key contract yet.
 
 The migration also reconstructs existing synthetic issued invoices from their stored totals and issuance timestamps, with reversal journals for those already voided. It assumes those historical invoices followed the same delivery rule; this is a learning-data migration, not an import policy for real accounting records.
+
+## Import a Stripe payout
+
+After Stripe marks a test payout paid, an owner or accountant can call `POST .../stripe-payouts/import` with `{"providerPayoutId":"po_replace_me"}`. LedgerFlow retrieves the payout and its expanded balance transactions directly from Stripe. Every supported line must be a completed local charge owned by the requested organization, each local payment can appear in only one payout, and gross minus fees must equal the provider's net payout. A batch containing another organization's payment or unsupported activity is rejected without saving or posting anything.
+
+An accepted payout creates one immutable `STRIPE_PAYOUT` journal per included payment. Each journal credits STRIPE_CLEARING for the gross charge, debits PROCESSING_FEES for that charge's fee, and debits PAYOUTS_IN_TRANSIT for the net. Repeating the same provider payout ID returns the saved result without posting again. `GET .../stripe-payouts` lists imports and `GET .../stripe-payouts/{id}` shows their charge allocations. The net stays in transit until the next piece matches it to the actual bank deposit and moves it to CASH.
 
 Payment history blocks invoice voiding. Cancel an unpaid intent first; successful/refunded payments need a future credit-note workflow. Payment setup is disabled by default and the account-backed sandbox check is still pending.
 

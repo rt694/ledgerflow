@@ -61,6 +61,7 @@ public class LedgerController {
                     rs.getObject("reverses_id", UUID.class),
                     rs.getObject("payment_id", UUID.class),
                     rs.getObject("bank_transaction_id", UUID.class),
+                    rs.getObject("payout_id", UUID.class),
                     rs.getString("source_key")),
             organizationId,
             size,
@@ -90,6 +91,7 @@ public class LedgerController {
                     rs.getObject("reverses_id", UUID.class),
                     rs.getObject("payment_id", UUID.class),
                     rs.getObject("bank_transaction_id", UUID.class),
+                    rs.getObject("payout_id", UUID.class),
                     rs.getString("source_key")),
             organizationId,
             id);
@@ -123,6 +125,7 @@ public class LedgerController {
       UUID reversesId,
       UUID paymentId,
       UUID bankTransactionId,
+      UUID payoutId,
       String sourceKey) {}
 
   public record Entry(String accountCode, BigDecimal debit, BigDecimal credit) {}

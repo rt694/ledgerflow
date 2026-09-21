@@ -1,6 +1,6 @@
 # Architecture sketch
 
-The backend foundation, business records, ledger, local Stripe/Plaid flows, and first reconciliation rule are in place. The account-backed sandbox checks are pending. The frontend and background processing below are still planned.
+The backend foundation, business records, ledger, local Stripe/Plaid flows, payout allocation, and invoice reconciliation rules are in place. The account-backed sandbox checks and payout-to-bank confirmation are pending. The frontend and background processing below are still planned.
 
 ## Runtime shape
 
@@ -16,7 +16,7 @@ Later, an outbox publisher sends committed events to Kafka for asynchronous work
 | organization | Organizations, memberships, OWNER/EMPLOYEE/ACCOUNTANT roles |
 | customer | Organization-scoped customer records |
 | invoicing | Invoice lines, calculations, lifecycle transitions |
-| payment | Payment/refund attempts, provider references, payment event deduplication |
+| payment | Payment/refund attempts, provider references, payout allocations, and payment event deduplication |
 | banking | Sandbox connections, secured tokens, synchronization cursors and transactions |
 | ledger | Accounts, posted journals, entries, reversals, derived balances |
 | reconciliation | Matching rules, confidence, review queue and decision history |
@@ -28,7 +28,7 @@ Organization membership is enforced at application entry points and data access.
 
 ## Transaction and integration boundaries
 
-An invoice operation updates invoice state and post its corresponding journal within one PostgreSQL transaction by calling the ledger API. `InvoiceLedger` requires an existing transaction; it never commits separately. Ledger-owned JDBC statements share the JPA transaction connection. Immutable headers and entries are assembled together; a deferred PostgreSQL constraint trigger checks balance at commit. Entry insertion locks the header and requires its creating transaction, blocking later appends. External provider calls cannot participate in that database transaction. Payment workflows therefore need persisted attempts, provider idempotency keys, explicit states, and verified webhook confirmation. Duplicate events become no-ops; delayed events must not blindly regress state. Payment reservations, canonical signed-webhook handling, deduplication, and invoice settlement now implement this boundary. Stripe fees/payouts and automated recovery remain planned.
+An invoice operation updates invoice state and posts its corresponding journal within one PostgreSQL transaction by calling the ledger API. `InvoiceLedger` requires an existing transaction; it never commits separately. Ledger-owned JDBC statements share the JPA transaction connection. Immutable headers and entries are assembled together; a deferred PostgreSQL constraint trigger checks balance at commit. Entry insertion locks the header and requires its creating transaction, blocking later appends. External provider calls cannot participate in that database transaction. Payment workflows therefore need persisted attempts, provider idempotency keys, explicit states, and verified webhook confirmation. Duplicate events become no-ops; delayed events must not blindly regress state. Payment reservations, canonical signed-webhook handling, deduplication, invoice settlement, and payout import now implement this boundary. Payout provider calls happen before the short allocation transaction. Automated recovery and payout-to-bank confirmation remain planned.
 
 The outbox later solves the database/Kafka dual-write gap: commit business state and the event together, publish afterward, and retry safely. An event is a committed fact, not a replacement for a ledger transaction.
 
@@ -78,9 +78,9 @@ Within each domain, use `api`, `application`, `domain`, and `infrastructure` sub
 ## Things I still need to work out
 
 - Browser token storage, refresh/logout, and signing key rotation when adding the frontend or tightening security.
-- More currencies, additional payment attempts, fees/payouts, and credit notes. USD, per-line tax rounding, and DRAFT/ISSUED/PAID/VOID are implemented.
+- More currencies, additional payment attempts, payout reversals, non-charge payout activity, and credit notes. USD, per-line tax rounding, and DRAFT/ISSUED/PAID/VOID are implemented.
 - Manual journals, a configurable chart of accounts, accounting periods, and replayable idempotency contracts as workflows expand.
-- Reconciliation tolerances, remittance references beyond invoice numbers, and safe provider payout allocation.
+- Payout-to-bank confirmation, reconciliation tolerances, and remittance references beyond invoice numbers.
 - Event partition keys, ordering, compatibility, and retry budgets when adding events.
 - Whether measurements justify service extraction or Redis beyond rate limiting.
 

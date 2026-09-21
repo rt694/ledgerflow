@@ -2,10 +2,12 @@ package com.ledgerflow.payment;
 
 import com.stripe.StripeClient;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Charge;
 import com.stripe.model.PaymentIntent;
 import com.stripe.net.RequestOptions;
 import com.stripe.param.*;
-import java.util.UUID;
+import java.time.*;
+import java.util.*;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -115,6 +117,45 @@ class StripeSdkGateway implements StripeGateway {
           dispute.getStatus(),
           Boolean.TRUE.equals(dispute.getLivemode()) || Boolean.TRUE.equals(charge.getLivemode()));
     } catch (StripeException exception) {
+      throw StripeSettings.unavailable();
+    }
+  }
+
+  public Payout retrievePayout(String id) {
+    settings.requireEnabled();
+    try {
+      var payout = client.v1().payouts().retrieve(id);
+      var params =
+          BalanceTransactionListParams.builder()
+              .setPayout(id)
+              .setLimit(100L)
+              .addExpand("data.source")
+              .build();
+      var lines = new ArrayList<PayoutLine>();
+      for (var value : client.v1().balanceTransactions().list(params).autoPagingIterable()) {
+        if (lines.size() >= 1000)
+          throw new IllegalArgumentException("Payout has too many balance transactions");
+        String intent =
+            value.getSourceObject() instanceof Charge charge ? charge.getPaymentIntent() : null;
+        lines.add(
+            new PayoutLine(
+                value.getId(),
+                value.getType(),
+                intent,
+                value.getAmount(),
+                value.getFee(),
+                value.getNet(),
+                value.getCurrency()));
+      }
+      return new Payout(
+          payout.getId(),
+          payout.getAmount(),
+          payout.getCurrency(),
+          payout.getStatus(),
+          Boolean.TRUE.equals(payout.getLivemode()),
+          Instant.ofEpochSecond(payout.getArrivalDate()).atZone(ZoneOffset.UTC).toLocalDate(),
+          List.copyOf(lines));
+    } catch (StripeException | IllegalArgumentException exception) {
       throw StripeSettings.unavailable();
     }
   }
