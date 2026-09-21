@@ -10,6 +10,7 @@ import com.ledgerflow.banking.PlaidGateway;
 import com.ledgerflow.payment.StripeGateway;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
@@ -146,8 +147,8 @@ class ReconciliationIT extends IntegrationTestSupport {
         "checking-1",
         new BigDecimal(amount),
         "USD",
-        LocalDate.now(),
-        LocalDate.now(),
+        LocalDate.now(ZoneOffset.UTC),
+        LocalDate.now(ZoneOffset.UTC),
         name,
         null,
         pending,

@@ -79,6 +79,10 @@ class PaymentsIT extends IntegrationTestSupport {
   Fixture fixture(String price) throws Exception {
     var owner = register("payment");
     var org = organization(owner);
+    return new Fixture(owner, org, invoice(owner, org, "PAY-1", price));
+  }
+
+  String invoice(TestUser owner, String org, String number, String price) throws Exception {
     var customer =
         send(
                 POST,
@@ -97,7 +101,7 @@ class PaymentsIT extends IntegrationTestSupport {
                     "customerId",
                     customer,
                     "number",
-                    "PAY-1",
+                    number,
                     "currency",
                     "USD",
                     "dueDate",
@@ -122,7 +126,7 @@ class PaymentsIT extends IntegrationTestSupport {
         owner.token(),
         Map.of("version", 0),
         200);
-    return new Fixture(owner, org, invoice);
+    return invoice;
   }
 
   JsonNode create(Fixture f, String key, int expected) throws Exception {
@@ -205,6 +209,22 @@ class PaymentsIT extends IntegrationTestSupport {
         "SELECT count(*) FROM ledgerflow.journal_transactions WHERE payment_id=?",
         Integer.class,
         UUID.fromString(payment.get("paymentId").asText()));
+  }
+
+  JsonNode succeed(Fixture fixture, String key) throws Exception {
+    JsonNode payment = create(fixture, key, 200);
+    StripeGateway.Intent intent = status(payment, "succeeded");
+    webhook("evt_" + UUID.randomUUID(), "payment_intent.succeeded", intent.id(), 200);
+    return payment;
+  }
+
+  JsonNode importPayout(Fixture fixture, String providerId, int expected) throws Exception {
+    return send(
+        POST,
+        base(fixture.org()) + "/stripe-payouts/import",
+        fixture.owner().token(),
+        Map.of("providerPayoutId", providerId),
+        expected);
   }
 
   @Test
@@ -400,6 +420,154 @@ class PaymentsIT extends IntegrationTestSupport {
   }
 
   @Test
+  void paidPayoutAllocatesFeesAndMovesClearingIntoTransitOnce() throws Exception {
+    var fixture = fixture();
+    var secondFixture =
+        new Fixture(
+            fixture.owner(),
+            fixture.org(),
+            invoice(fixture.owner(), fixture.org(), "PAY-2", "50.00"));
+    JsonNode payment = succeed(fixture, "payout-payment-one");
+    JsonNode secondPayment = succeed(secondFixture, "payout-payment-two");
+    String providerId = "po_single";
+    when(stripe.retrievePayout(providerId))
+        .thenReturn(
+            new StripeGateway.Payout(
+                providerId,
+                14550,
+                "usd",
+                "paid",
+                false,
+                LocalDate.now().plusDays(2),
+                List.of(
+                    new StripeGateway.PayoutLine(
+                        "txn_single",
+                        "charge",
+                        payment.get("providerId").asText(),
+                        10000,
+                        300,
+                        9700,
+                        "usd"),
+                    new StripeGateway.PayoutLine(
+                        "txn_second_same_org",
+                        "charge",
+                        secondPayment.get("providerId").asText(),
+                        5000,
+                        150,
+                        4850,
+                        "usd"))));
+    JsonNode imported = importPayout(fixture, providerId, 200);
+    JsonNode repeated = importPayout(fixture, providerId, 200);
+    assertThat(repeated.get("id")).isEqualTo(imported.get("id"));
+    assertThat(imported.get("gross").decimalValue()).isEqualByComparingTo("150.00");
+    assertThat(imported.get("fee").decimalValue()).isEqualByComparingTo("4.50");
+    assertThat(imported.get("amount").decimalValue()).isEqualByComparingTo("145.50");
+    assertThat(imported.get("allocations")).hasSize(2);
+    verify(stripe).retrievePayout(providerId);
+    UUID organizationId = UUID.fromString(fixture.org());
+    assertThat(accountBalance(organizationId, "STRIPE_CLEARING")).isEqualByComparingTo("0.00");
+    assertThat(accountBalance(organizationId, "PAYOUTS_IN_TRANSIT")).isEqualByComparingTo("145.50");
+    assertThat(accountBalance(organizationId, "PROCESSING_FEES")).isEqualByComparingTo("4.50");
+    assertThat(accountBalance(organizationId, "CASH")).isEqualByComparingTo("0.00");
+    UUID payoutId = UUID.fromString(imported.get("id").asText());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM ledgerflow.journal_transactions WHERE payout_id=? AND operation='STRIPE_PAYOUT'",
+                Integer.class,
+                payoutId))
+        .isEqualTo(2);
+    assertThat(
+            catchThrowable(
+                () -> jdbc.update("DELETE FROM ledgerflow.stripe_payouts WHERE id=?", payoutId)))
+        .isNotNull();
+    when(stripe.retrievePayout("po_duplicatepayment"))
+        .thenReturn(
+            new StripeGateway.Payout(
+                "po_duplicatepayment",
+                9700,
+                "usd",
+                "paid",
+                false,
+                LocalDate.now().plusDays(3),
+                List.of(
+                    new StripeGateway.PayoutLine(
+                        "txn_duplicate_payment",
+                        "charge",
+                        payment.get("providerId").asText(),
+                        10000,
+                        300,
+                        9700,
+                        "usd"))));
+    importPayout(fixture, "po_duplicatepayment", 409);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM ledgerflow.stripe_payouts", Integer.class))
+        .isOne();
+  }
+
+  @Test
+  void mixedOrganizationPayoutIsRejectedWithoutPosting() throws Exception {
+    var first = fixture();
+    var second = fixture();
+    JsonNode firstPayment = succeed(first, "payout-first");
+    JsonNode secondPayment = succeed(second, "payout-second");
+    String providerId = "po_mixed";
+    when(stripe.retrievePayout(providerId))
+        .thenReturn(
+            new StripeGateway.Payout(
+                providerId,
+                19400,
+                "usd",
+                "paid",
+                false,
+                LocalDate.now().plusDays(2),
+                List.of(
+                    new StripeGateway.PayoutLine(
+                        "txn_first",
+                        "charge",
+                        firstPayment.get("providerId").asText(),
+                        10000,
+                        300,
+                        9700,
+                        "usd"),
+                    new StripeGateway.PayoutLine(
+                        "txn_second",
+                        "charge",
+                        secondPayment.get("providerId").asText(),
+                        10000,
+                        300,
+                        9700,
+                        "usd"))));
+    importPayout(first, providerId, 409);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM ledgerflow.stripe_payouts WHERE provider_id=?",
+                Integer.class,
+                providerId))
+        .isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM ledgerflow.journal_transactions WHERE operation='STRIPE_PAYOUT'",
+                Integer.class))
+        .isZero();
+    assertThat(accountBalance(UUID.fromString(first.org()), "STRIPE_CLEARING"))
+        .isEqualByComparingTo("100.00");
+  }
+
+  @Test
+  void employeesCanReadPayoutsButCannotImportThem() throws Exception {
+    var fixture = fixture();
+    var employee = register("payout-employee");
+    addMember(fixture.org(), fixture.owner(), employee, "EMPLOYEE");
+    send(GET, base(fixture.org()) + "/stripe-payouts", employee.token(), null, 200);
+    send(
+        POST,
+        base(fixture.org()) + "/stripe-payouts/import",
+        employee.token(),
+        Map.of("providerPayoutId", "po_denied"),
+        403);
+    verify(stripe, never()).retrievePayout("po_denied");
+  }
+
+  @Test
   void refundBeforeSuccessNotificationStillPostsCorrectNetAmount() throws Exception {
     var f = fixture();
     var p = create(f, "early-refund", 200);
@@ -545,5 +713,13 @@ class PaymentsIT extends IntegrationTestSupport {
     verify(stripe, never()).create(any(), any(), any(), anyLong());
     var allowed = create(fixture("999999.99"), "upper-bound", 200);
     assertThat(intents.get(allowed.get("providerId").asText()).amount()).isEqualTo(99999999L);
+  }
+
+  BigDecimal accountBalance(UUID organizationId, String account) {
+    return jdbc.queryForObject(
+        "SELECT coalesce(sum(debit-credit),0) FROM ledgerflow.journal_entries WHERE organization_id=? AND account_code=?",
+        BigDecimal.class,
+        organizationId,
+        account);
   }
 }
