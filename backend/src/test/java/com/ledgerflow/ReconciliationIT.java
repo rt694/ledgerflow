@@ -9,10 +9,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ledgerflow.banking.PlaidGateway;
 import com.ledgerflow.payment.StripeGateway;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.nio.charset.StandardCharsets;
+import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,7 +42,7 @@ class ReconciliationIT extends IntegrationTestSupport {
 
   @BeforeEach
   void gateway() {
-    reset(plaid);
+    reset(plaid, stripe);
     when(plaid.exchange(anyString()))
         .thenReturn(
             new PlaidGateway.Exchange(
@@ -171,6 +173,110 @@ class ReconciliationIT extends IntegrationTestSupport {
         .get(0);
   }
 
+  JsonNode paidPayout(Fixture fixture, String payoutProviderId, LocalDate arrivalDate)
+      throws Exception {
+    when(stripe.create(any(), any(), any(), eq(10000L)))
+        .thenAnswer(
+            call -> {
+              UUID paymentId = call.getArgument(0);
+              UUID organizationId = call.getArgument(1);
+              UUID invoiceId = call.getArgument(2);
+              return new StripeGateway.Intent(
+                  "pi_" + paymentId,
+                  10000,
+                  "usd",
+                  "requires_payment_method",
+                  false,
+                  "synthetic_client_secret",
+                  Map.of(
+                      "ledgerflow_payment_id",
+                      paymentId.toString(),
+                      "ledgerflow_organization_id",
+                      organizationId.toString(),
+                      "ledgerflow_invoice_id",
+                      invoiceId.toString()));
+            });
+    var paymentResponse =
+        mvc.perform(
+                MockMvcRequestBuilders.post(base(fixture.organization()) + "/payments")
+                    .header("Authorization", "Bearer " + fixture.owner().token())
+                    .header("Idempotency-Key", "payout-bank-match")
+                    .contentType("application/json")
+                    .content(json.writeValueAsString(Map.of("invoiceId", fixture.invoice()))))
+            .andReturn()
+            .getResponse();
+    assertThat(paymentResponse.getStatus()).isEqualTo(200);
+    JsonNode payment = json.readTree(paymentResponse.getContentAsString());
+    String intentId = payment.get("providerId").asText();
+    UUID paymentId = UUID.fromString(payment.get("paymentId").asText());
+    var succeeded =
+        new StripeGateway.Intent(
+            intentId,
+            10000,
+            "usd",
+            "succeeded",
+            false,
+            "synthetic_client_secret",
+            Map.of(
+                "ledgerflow_payment_id",
+                paymentId.toString(),
+                "ledgerflow_organization_id",
+                fixture.organization(),
+                "ledgerflow_invoice_id",
+                fixture.invoice()));
+    when(stripe.retrieve(intentId)).thenReturn(succeeded);
+    String event =
+        json.writeValueAsString(
+            Map.of(
+                "id",
+                "evt_" + UUID.randomUUID(),
+                "object",
+                "event",
+                "type",
+                "payment_intent.succeeded",
+                "livemode",
+                false,
+                "data",
+                Map.of("object", Map.of("id", intentId))));
+    long timestamp = Instant.now().getEpochSecond();
+    var mac = Mac.getInstance("HmacSHA256");
+    mac.init(new SecretKeySpec("whsec_fixture".getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+    String signature =
+        "t="
+            + timestamp
+            + ",v1="
+            + HexFormat.of()
+                .formatHex(mac.doFinal((timestamp + "." + event).getBytes(StandardCharsets.UTF_8)));
+    assertThat(
+            mvc.perform(
+                    MockMvcRequestBuilders.post("/api/v1/webhooks/stripe")
+                        .header("Stripe-Signature", signature)
+                        .contentType("application/json")
+                        .content(event))
+                .andReturn()
+                .getResponse()
+                .getStatus())
+        .isEqualTo(200);
+    when(stripe.retrievePayout(payoutProviderId))
+        .thenReturn(
+            new StripeGateway.Payout(
+                payoutProviderId,
+                9700,
+                "usd",
+                "paid",
+                false,
+                arrivalDate,
+                List.of(
+                    new StripeGateway.PayoutLine(
+                        "txn_payout_bank_match", "charge", intentId, 10000, 300, 9700, "usd"))));
+    return send(
+        POST,
+        base(fixture.organization()) + "/stripe-payouts/import",
+        fixture.owner().token(),
+        Map.of("providerPayoutId", payoutProviderId),
+        200);
+  }
+
   @Test
   void exactReferenceMatchPostsCashAndSettlesInvoice() throws Exception {
     var fixture =
@@ -244,6 +350,112 @@ class ReconciliationIT extends IntegrationTestSupport {
                         "DELETE FROM ledgerflow.reconciliation_decisions WHERE case_id=?",
                         UUID.fromString(value.get("id").asText()))))
         .isNotNull();
+  }
+
+  @Test
+  void reviewedPayoutDepositMovesTransitIntoCashOnce() throws Exception {
+    LocalDate bankDate = LocalDate.now(ZoneOffset.UTC);
+    var fixture =
+        fixture(
+            "REC-PAYOUT",
+            "100.00",
+            List.of(
+                new PlaidGateway.Transaction(
+                    "bank-payout-1",
+                    "checking-1",
+                    new BigDecimal("-97.00"),
+                    "USD",
+                    bankDate,
+                    bankDate,
+                    "STRIPE PAYOUT po_bankmatch",
+                    null,
+                    false,
+                    null)));
+    JsonNode payout = paidPayout(fixture, "po_bankmatch", bankDate);
+
+    JsonNode summary =
+        send(
+            POST,
+            base(fixture.organization()) + "/reconciliation/refresh",
+            fixture.owner().token(),
+            null,
+            200);
+    assertThat(summary.get("invoiceCandidates").asInt()).isZero();
+    assertThat(summary.get("payoutCandidates").asInt()).isOne();
+    JsonNode reconciliationCase =
+        send(
+                GET,
+                base(fixture.organization()) + "/reconciliation/cases?status=OPEN",
+                fixture.owner().token(),
+                null,
+                200)
+            .get(0);
+    assertThat(reconciliationCase.get("candidateCount").asInt()).isOne();
+    assertThat(reconciliationCase.get("payoutCandidateCount").asInt()).isOne();
+    assertThat(reconciliationCase.get("reviewState").asText()).isEqualTo("SINGLE_CANDIDATE");
+    String caseId = reconciliationCase.get("id").asText();
+    JsonNode detail =
+        send(
+            GET,
+            base(fixture.organization()) + "/reconciliation/cases/" + caseId,
+            fixture.owner().token(),
+            null,
+            200);
+    assertThat(detail.get("candidates")).isEmpty();
+    assertThat(detail.get("payoutCandidates")).hasSize(1);
+    assertThat(detail.at("/payoutCandidates/0/payoutId").asText())
+        .isEqualTo(payout.get("id").asText());
+    assertThat(detail.at("/payoutCandidates/0/rule").asText())
+        .isEqualTo("PAYOUT_REFERENCE_AND_AMOUNT");
+
+    var employee = register("payout-review-employee");
+    addMember(fixture.organization(), fixture.owner(), employee, "EMPLOYEE");
+    send(
+        POST,
+        base(fixture.organization()) + "/reconciliation/cases/" + caseId + "/match-payout",
+        employee.token(),
+        Map.of("payoutId", payout.get("id").asText(), "version", 0),
+        403);
+    JsonNode matched =
+        send(
+            POST,
+            base(fixture.organization()) + "/reconciliation/cases/" + caseId + "/match-payout",
+            fixture.owner().token(),
+            Map.of("payoutId", payout.get("id").asText(), "version", 0),
+            200);
+    assertThat(matched.at("/reconciliationCase/status").asText()).isEqualTo("MATCHED");
+    assertThat(matched.at("/reconciliationCase/matchedInvoiceId").isNull()).isTrue();
+    assertThat(matched.at("/reconciliationCase/matchedPayoutId").asText())
+        .isEqualTo(payout.get("id").asText());
+    assertThat(matched.at("/reconciliationCase/matchedAmount").decimalValue())
+        .isEqualByComparingTo("97.00");
+    assertThat(matched.at("/decisions/0/payoutId").asText()).isEqualTo(payout.get("id").asText());
+    JsonNode depositedPayout =
+        send(
+            GET,
+            base(fixture.organization()) + "/stripe-payouts/" + payout.get("id").asText(),
+            fixture.owner().token(),
+            null,
+            200);
+    assertThat(depositedPayout.get("bankTransactionId").isNull()).isFalse();
+    assertThat(depositedPayout.get("depositedAt").isNull()).isFalse();
+
+    UUID organizationId = UUID.fromString(fixture.organization());
+    assertThat(accountBalance(organizationId, "PAYOUTS_IN_TRANSIT")).isEqualByComparingTo("0.00");
+    assertThat(accountBalance(organizationId, "CASH")).isEqualByComparingTo("97.00");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM ledgerflow.journal_transactions WHERE organization_id=? AND payout_id=? AND operation='PAYOUT_DEPOSIT' AND invoice_id IS NULL",
+                Integer.class,
+                organizationId,
+                UUID.fromString(payout.get("id").asText())))
+        .isOne();
+    send(
+        POST,
+        base(fixture.organization()) + "/reconciliation/cases/" + caseId + "/match-payout",
+        fixture.owner().token(),
+        Map.of("payoutId", payout.get("id").asText(), "version", 0),
+        409);
   }
 
   @Test
@@ -616,5 +828,13 @@ class ReconciliationIT extends IntegrationTestSupport {
         "SELECT sum(e.debit-e.credit) FROM ledgerflow.journal_entries e JOIN ledgerflow.journal_transactions j ON j.id=e.journal_id WHERE j.invoice_id=? AND e.account_code='RECEIVABLES'",
         BigDecimal.class,
         UUID.fromString(invoice));
+  }
+
+  BigDecimal accountBalance(UUID organizationId, String account) {
+    return jdbc.queryForObject(
+        "SELECT coalesce(sum(debit-credit),0) FROM ledgerflow.journal_entries WHERE organization_id=? AND account_code=?",
+        BigDecimal.class,
+        organizationId,
+        account);
   }
 }

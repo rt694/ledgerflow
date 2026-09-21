@@ -499,7 +499,11 @@ class PaymentsIT extends IntegrationTestSupport {
                         9700,
                         "usd"))));
     importPayout(fixture, "po_duplicatepayment", 409);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM ledgerflow.stripe_payouts", Integer.class))
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM ledgerflow.stripe_payouts WHERE organization_id=?",
+                Integer.class,
+                organizationId))
         .isOne();
   }
 
@@ -545,8 +549,9 @@ class PaymentsIT extends IntegrationTestSupport {
         .isZero();
     assertThat(
             jdbc.queryForObject(
-                "SELECT count(*) FROM ledgerflow.journal_transactions WHERE operation='STRIPE_PAYOUT'",
-                Integer.class))
+                "SELECT count(*) FROM ledgerflow.journal_transactions WHERE organization_id=? AND operation='STRIPE_PAYOUT'",
+                Integer.class,
+                UUID.fromString(first.org())))
         .isZero();
     assertThat(accountBalance(UUID.fromString(first.org()), "STRIPE_CLEARING"))
         .isEqualByComparingTo("100.00");
