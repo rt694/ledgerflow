@@ -1,10 +1,10 @@
 # Architecture sketch
 
-The backend foundation, business records, ledger, local Stripe/Plaid flows, payout allocation, and invoice/payout reconciliation rules are in place. The account-backed sandbox checks are pending. The frontend and background processing below are still planned.
+The backend foundation, business records, ledger, local Stripe/Plaid flows, payout allocation, and invoice/payout reconciliation rules are in place. The frontend now has its identity and organization shell. The account-backed sandbox checks are pending, and background processing is still planned.
 
 ## Runtime shape
 
-The future React browser client calls the Spring Boot REST API. The backend owns authorization, invoice state, payments, banking, journals, and reconciliation. PostgreSQL stores authoritative business data and Flyway manages its schema. Provider calls use Stripe test/sandbox and Plaid Sandbox only.
+The React browser client calls the Spring Boot REST API through Vite's local development proxy. It keeps the short-lived bearer token in session storage, restores the current user on reload, and loads organization membership from the API. The backend owns authorization, invoice state, payments, banking, journals, and reconciliation. PostgreSQL stores authoritative business data and Flyway manages its schema. Provider calls use Stripe test/sandbox and Plaid Sandbox only.
 
 Later, an outbox publisher sends committed events to Kafka for asynchronous work. Consumers remain within the monolith initially. Redis is introduced for a specific disposable-cache or rate-limit need. A Python/FastAPI analytics service can score synthetic transactions; the backend decides whether to queue a review. Analytics never writes to the ledger. Observability and AWS infrastructure arrive once the main workflows are working.
 
@@ -65,7 +65,7 @@ ledgerflow/
   compose.yaml               # PostgreSQL only initially
   .env.example               # names and safe placeholders, no secrets
   .gitignore
-  frontend/                  # frontend
+  frontend/                  # React/TypeScript browser app
   analytics/                 # later analytics service
   observability/             # later monitoring
   infrastructure/terraform/  # optional AWS deployment
@@ -77,7 +77,7 @@ Within each domain, use `api`, `application`, `domain`, and `infrastructure` sub
 
 ## Things I still need to work out
 
-- Browser token storage, refresh/logout, and signing key rotation when adding the frontend or tightening security.
+- Refresh tokens, stronger browser session handling, and signing key rotation when tightening security. The current browser flow uses session storage and the existing 15-minute bearer token.
 - More currencies, additional payment attempts, payout reversals, non-charge payout activity, and credit notes. USD, per-line tax rounding, and DRAFT/ISSUED/PAID/VOID are implemented.
 - Manual journals, a configurable chart of accounts, accounting periods, and replayable idempotency contracts as workflows expand.
 - Reconciliation tolerances and remittance references beyond invoice numbers or Stripe payout IDs.

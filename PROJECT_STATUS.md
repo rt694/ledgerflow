@@ -23,6 +23,8 @@ Updated: 2026-09-21.
 - Verified Stripe payout allocations with exact gross, fee, and net amounts; mixed-organization batches are rejected.
 - Immutable payout journals move gross clearing into processing fees and payouts in transit.
 - Reviewed payout deposits move the exact net amount from payouts in transit into cash.
+- React and TypeScript registration/login screens, session restoration, sign-out, and organization creation/selection.
+- A responsive organization home with clear loading, empty, and API error states.
 
 ## What I've checked
 
@@ -34,6 +36,7 @@ Updated: 2026-09-21.
 - Flyway applies/validates all ten migrations; a fresh connection finds the same migration history.
 - Started the packaged app against the local Compose database and ran the synthetic workflow over HTTP.
 - Checked live health/OpenAPI and bearer authentication in Swagger, documentation links, and exclusions for credentials/build output.
+- Frontend lint and production build pass; a live HTTP check exercised registration, login, current-user lookup, organization creation, and organization listing through the development proxy.
 
 Ledger tests also cover concurrent issuance, posting rollback, empty/unbalanced journals, incorrect reversals, tenant boundaries, and upgrading existing invoice history.
 
@@ -49,11 +52,11 @@ No real financial data, account-backed Stripe or Plaid calls, or performance mea
 
 Stripe Sandbox code is implemented: intent reservations and stable provider keys, signed webhooks, PAID invoice settlement, payment/refund/dispute journals, cancellation, one full-refund request per payment, and manual import of paid provider payouts. Payout import accepts only charge batches that resolve completely to one LedgerFlow organization, records Stripe fees, and moves the net into payouts in transit. Plaid Sandbox code connects fake banks and synchronizes account and transaction changes. Reconciliation explains empty, single, and ambiguous invoice or payout candidate sets. Reviewed invoice receipts move receivables into CASH, while reviewed payout deposits move payouts in transit into CASH without changing imported provider history.
 
-The account-backed smoke checks are pending because Stripe and Plaid credentials are not configured locally. Follow [payment setup](docs/STRIPE_SANDBOX.md) and [fake bank setup](docs/PLAID_SANDBOX.md). Both providers default to disabled; no mock provider is used in the running app.
+The account-backed smoke checks are pending because Stripe and Plaid credentials are not configured locally. Follow [payment setup](docs/STRIPE_SANDBOX.md) and [fake bank setup](docs/PLAID_SANDBOX.md). Both providers default to disabled; no mock provider is used in the running app. The frontend now covers identity and organization setup with a session-scoped bearer token; invoice screens are next.
 
 ## Up next
 
-Finish both account-backed Sandbox checks, then start the first frontend workflow around login, invoices, payments, and review. Automated provider-request recovery, payout reversals, non-charge payout activity, credit notes, and additional payment attempts are not implemented.
+Finish both account-backed Sandbox checks when credentials are available. Continue the frontend with customer and invoice creation, then connect payments, banking, and reconciliation review. Automated provider-request recovery, payout reversals, non-charge payout activity, credit notes, and additional payment attempts are not implemented.
 
 The other ideas are in the [build checklist](docs/ROADMAP.md). The [API walkthrough](docs/API_WALKTHROUGH.md) explains what works now.
 
@@ -64,4 +67,4 @@ The other ideas are in the [build checklist](docs/ROADMAP.md). The [API walkthro
 - API port 18080, database port 55432, both on localhost.
 - JWT signing keys live in ignored `.local/`; tests generate temporary keys.
 - Stripe CLI 1.51.0 installed user-locally; account authentication is pending.
-- Python 3 is optional for the smoke workflow. Node isn't needed until the frontend.
+- Python 3 is optional for the smoke workflow. Node 24 and npm 11 are used for the frontend.
