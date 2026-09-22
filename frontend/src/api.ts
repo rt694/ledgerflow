@@ -14,8 +14,61 @@ type TokenResponse = {
   accessToken: string
 }
 
-type Page<T> = {
+export type Page<T> = {
   items: T[]
+  page: number
+  size: number
+  totalElements: number
+}
+
+export type Customer = {
+  id: string
+  name: string
+  email: string
+  version: number
+}
+
+export type InvoiceLine = {
+  description: string
+  quantity: number
+  unitPrice: string
+  taxRate: string
+  subtotal: string
+  tax: string
+  total: string
+}
+
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'VOID'
+
+export type Invoice = {
+  id: string
+  customerId: string
+  customerName: string
+  customerEmail: string
+  number: string
+  currency: 'USD'
+  status: InvoiceStatus
+  dueDate: string
+  subtotal: string
+  tax: string
+  total: string
+  version: number
+  issuedAt: string | null
+  voidedAt: string | null
+  lines: InvoiceLine[]
+}
+
+export type NewInvoice = {
+  customerId: string
+  number: string
+  currency: 'USD'
+  dueDate: string
+  lines: Array<{
+    description: string
+    quantity: number
+    unitPrice: string
+    taxRate: string
+  }>
 }
 
 type Problem = {
@@ -90,5 +143,34 @@ export function createOrganization(token: string, name: string) {
   return request<Organization>('/organizations', {
     method: 'POST',
     body: JSON.stringify({ name }),
+  }, token)
+}
+
+export function listCustomers(token: string, organizationId: string) {
+  return request<Page<Customer>>(`/organizations/${organizationId}/customers?size=100`, {}, token)
+}
+
+export function createCustomer(token: string, organizationId: string, name: string, email: string) {
+  return request<Customer>(`/organizations/${organizationId}/customers`, {
+    method: 'POST',
+    body: JSON.stringify({ name, email }),
+  }, token)
+}
+
+export function listInvoices(token: string, organizationId: string) {
+  return request<Page<Invoice>>(`/organizations/${organizationId}/invoices?size=100`, {}, token)
+}
+
+export function createInvoice(token: string, organizationId: string, invoice: NewInvoice) {
+  return request<Invoice>(`/organizations/${organizationId}/invoices`, {
+    method: 'POST',
+    body: JSON.stringify(invoice),
+  }, token)
+}
+
+export function issueInvoice(token: string, organizationId: string, invoiceId: string, version: number) {
+  return request<Invoice>(`/organizations/${organizationId}/invoices/${invoiceId}/issue`, {
+    method: 'POST',
+    body: JSON.stringify({ version }),
   }, token)
 }

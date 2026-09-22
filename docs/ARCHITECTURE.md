@@ -1,10 +1,10 @@
 # Architecture sketch
 
-The backend foundation, business records, ledger, local Stripe/Plaid flows, payout allocation, and invoice/payout reconciliation rules are in place. The frontend now has its identity and organization shell. The account-backed sandbox checks are pending, and background processing is still planned.
+The backend foundation, business records, ledger, local Stripe/Plaid flows, payout allocation, and invoice/payout reconciliation rules are in place. The frontend now covers identity, organizations, customers, and invoice creation/issuing. The account-backed sandbox checks are pending, and background processing is still planned.
 
 ## Runtime shape
 
-The React browser client calls the Spring Boot REST API through Vite's local development proxy. It keeps the short-lived bearer token in session storage, restores the current user on reload, and loads organization membership from the API. The backend owns authorization, invoice state, payments, banking, journals, and reconciliation. PostgreSQL stores authoritative business data and Flyway manages its schema. Provider calls use Stripe test/sandbox and Plaid Sandbox only.
+The React browser client calls the Spring Boot REST API through Vite's local development proxy. It keeps the short-lived bearer token in session storage, restores the current user on reload, and loads organization membership from the API. Customer and invoice screens use organization-scoped endpoints, while invoice calculations and lifecycle rules stay on the backend. The backend owns authorization, invoice state, payments, banking, journals, and reconciliation. PostgreSQL stores authoritative business data and Flyway manages its schema. Provider calls use Stripe test/sandbox and Plaid Sandbox only.
 
 Later, an outbox publisher sends committed events to Kafka for asynchronous work. Consumers remain within the monolith initially. Redis is introduced for a specific disposable-cache or rate-limit need. A Python/FastAPI analytics service can score synthetic transactions; the backend decides whether to queue a review. Analytics never writes to the ledger. Observability and AWS infrastructure arrive once the main workflows are working.
 
