@@ -2,7 +2,7 @@
 
 I'm building LedgerFlow to learn how payments, invoices, and bank reconciliation fit together. The idea is a small-business app where I can create invoices, simulate payments, and track the money in a double-entry ledger.
 
-The backend now supports users, organizations, customers, invoices, payments, fake bank connections, and a review queue for incoming bank activity. I can verify a paid Stripe payout, allocate its charges to one organization, record its fees, and review the matching bank deposit before moving the net amount into cash. Stripe and Plaid are tested locally; their account-backed checks wait for Sandbox credentials.
+The backend now supports users, organizations, customers, invoices, payments, fake bank connections, and a review queue for incoming bank activity. The first browser workflow is also running: I can create an account, sign in, restore a session, and create or select an organization. Stripe and Plaid are tested locally; their account-backed checks wait for Sandbox credentials.
 
 ## What I'm using
 
@@ -28,9 +28,10 @@ I'm starting with one backend organized by business domain. That lets me learn t
 - Plaid Sandbox Link tokens, encrypted bank credentials, cursor sync, and verified webhooks
 - Reviewable exact and partial bank-to-invoice matches with visible ambiguity, immutable cash journals, and decision history
 - Reviewable payout-to-bank matches that clear confirmed deposits from transit into cash
+- Responsive React screens for registration, login, session recovery, and organization setup
 - PostgreSQL migrations, health checks, validation, consistent errors, and local Swagger UI
 
-I still need the account-backed Stripe and Plaid checks. A frontend dashboard follows after the review API settles down.
+I still need the account-backed Stripe and Plaid checks. The next browser work connects the invoice workflow to the dashboard.
 
 Everything uses fake data. This project won't handle real money or real bank credentials. Stripe/Plaid integrations will use sandboxes, and any AWS deployment comes after checking costs and getting approval.
 
@@ -54,7 +55,7 @@ git clone https://github.com/rt694/ledgerflow.git
 cd ledgerflow
 ```
 
-You'll need Java 21 and a running Docker daemon. Maven is downloaded through the wrapper, and PostgreSQL runs in Docker Compose.
+You'll need Java 21, Node.js, and a running Docker daemon. Maven is downloaded through the wrapper, and PostgreSQL runs in Docker Compose.
 
 From the repository root, create your local settings and start the database:
 
@@ -73,6 +74,16 @@ Once the app is running:
 - Swagger UI: `http://localhost:18080/swagger-ui/index.html`
 - OpenAPI: `http://localhost:18080/v3/api-docs`
 
+To run the browser app in a second terminal:
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. The local frontend forwards API requests to the backend on port 18080.
+
 In Swagger UI, register and log in, then use **Authorize** with the returned token. The [walkthrough](docs/API_WALKTHROUGH.md) explains the role permissions and invoice requests. The app listens on localhost.
 
 ## Checking the backend
@@ -88,3 +99,5 @@ This checks Java formatting, compiles the app, runs 31 focused tests, packages a
 From the repository root, with the local app running, `python3 scripts/smoke-workflow.py` checks a synthetic registration-to-invoice workflow over HTTP without printing tokens.
 
 See the [setup notes](docs/LOCAL_DEVELOPMENT.md) for requests you can try by hand. These tests aren't performance measurements; there are no latency or throughput claims yet.
+
+From `frontend/`, `npm run lint` and `npm run build` check the browser code and production bundle.
