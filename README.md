@@ -28,10 +28,10 @@ I'm starting with one backend organized by business domain. That lets me learn t
 - Plaid Sandbox Link tokens, encrypted bank credentials, cursor sync, and verified webhooks
 - Reviewable exact and partial bank-to-invoice matches with visible ambiguity, immutable cash journals, and decision history
 - Reviewable payout-to-bank matches that clear confirmed deposits from transit into cash
-- Responsive React screens for registration, login, session recovery, and organization setup
+- Responsive React screens for registration, login, organization setup, customers, and invoice drafting/issuing
 - PostgreSQL migrations, health checks, validation, consistent errors, and local Swagger UI
 
-I still need the account-backed Stripe and Plaid checks. The next browser work connects the invoice workflow to the dashboard.
+I still need the account-backed Stripe and Plaid checks. The next browser work connects payments and bank review to the dashboard.
 
 Everything uses fake data. This project won't handle real money or real bank credentials. Stripe/Plaid integrations will use sandboxes, and any AWS deployment comes after checking costs and getting approval.
 

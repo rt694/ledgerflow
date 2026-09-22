@@ -10,6 +10,7 @@ import {
   register,
 } from './api'
 import type { Organization, User } from './api'
+import { OrganizationWorkspace } from './workspace/OrganizationWorkspace'
 
 const SESSION_KEY = 'ledgerflow.accessToken'
 
@@ -254,7 +255,7 @@ function Workspace({
 
         <main className="workspace-main">
           {activeOrganization ? (
-            <OrganizationHome organization={activeOrganization} />
+            <OrganizationWorkspace key={activeOrganization.id} organization={activeOrganization} token={token} />
           ) : (
             <section className="empty-state">
               <div className="empty-icon" aria-hidden="true">↗</div>
@@ -273,47 +274,6 @@ function Workspace({
         </main>
       </div>
     </div>
-  )
-}
-
-function OrganizationHome({ organization }: { organization: Organization }) {
-  return (
-    <section className="organization-home">
-      <div className="welcome-row">
-        <div>
-          <p className="eyebrow">Organization overview</p>
-          <h1>{organization.name}</h1>
-          <p>Your workspace is ready. The next pieces will turn it into a complete accounting flow.</p>
-        </div>
-        <span className="role-badge">{formatRole(organization.role)}</span>
-      </div>
-
-      <div className="summary-grid">
-        <article className="summary-card primary">
-          <span className="card-number">01</span>
-          <h2>Connect accounts</h2>
-          <p>Link bank accounts so transactions can enter LedgerFlow automatically.</p>
-          <span className="coming-soon">Coming next</span>
-        </article>
-        <article className="summary-card">
-          <span className="card-number">02</span>
-          <h2>Review transactions</h2>
-          <p>Categorize activity and keep every record ready for reporting.</p>
-          <span className="coming-soon muted">Planned</span>
-        </article>
-        <article className="summary-card">
-          <span className="card-number">03</span>
-          <h2>See your reports</h2>
-          <p>Turn organized records into a clear view of business performance.</p>
-          <span className="coming-soon muted">Planned</span>
-        </article>
-      </div>
-
-      <article className="workspace-note">
-        <div className="note-mark" aria-hidden="true">✓</div>
-        <div><strong>Account and organization setup complete</strong><p>Your authenticated session is connected to the LedgerFlow API.</p></div>
-      </article>
-    </section>
   )
 }
 
