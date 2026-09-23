@@ -129,29 +129,29 @@ function AuthScreen({
       <section className="auth-story">
         <Brand />
         <div className="story-copy">
-          <p className="eyebrow">Bookkeeping without the busywork</p>
-          <h1>Keep the money side of your business in one clear flow.</h1>
+          <p className="eyebrow">Your books, but way less boring</p>
+          <h1>Money stuff, finally making sense.</h1>
           <p className="story-intro">
-            LedgerFlow brings bank activity, receipts, invoices, and reports together so your records stay useful as your business grows.
+            Send invoices, follow payments, and keep your numbers tidy without losing the plot.
           </p>
           <div className="flow-preview" aria-label="LedgerFlow process">
-            <FlowStep number="01" title="Connect" detail="Bring in business activity" />
-            <FlowStep number="02" title="Review" detail="Organize records as they arrive" />
-            <FlowStep number="03" title="Understand" detail="See what the numbers mean" />
+            <FlowStep number="01" title="Add it" detail="Customers and invoices" />
+            <FlowStep number="02" title="Match it" detail="Payments and bank activity" />
+            <FlowStep number="03" title="Get it" detail="Numbers you can explain" />
           </div>
         </div>
-        <p className="story-note">Built as a hands-on accounting platform project.</p>
+        <p className="story-note">Made with curiosity, coffee, and a suspicious number of test invoices.</p>
       </section>
 
       <section className="auth-panel">
         <div className="auth-card">
           <div className="auth-heading">
-            <p className="eyebrow">{mode === 'register' ? 'Start your workspace' : 'Welcome back'}</p>
-            <h2>{mode === 'register' ? 'Create your account' : 'Sign in to LedgerFlow'}</h2>
+            <p className="eyebrow">{mode === 'register' ? 'Let’s get rolling' : 'Hey, welcome back'}</p>
+            <h2>{mode === 'register' ? 'Build your money HQ' : 'Jump back in'}</h2>
             <p>
               {mode === 'register'
-                ? 'Use your account to create an organization and begin setting up its books.'
-                : 'Pick up where you left off.'}
+                ? 'Create an account, name your workspace, and make those numbers behave.'
+                : 'Your customers, invoices, and beautifully organized numbers missed you.'}
             </p>
           </div>
 
@@ -176,7 +176,7 @@ function AuthScreen({
             {error && <div className="error-message" role="alert">{error}</div>}
 
             <button className="primary-button" disabled={submitting} type="submit">
-              {submitting ? 'One moment…' : mode === 'register' ? 'Create account' : 'Sign in'}
+              {submitting ? 'Doing the thing…' : mode === 'register' ? 'Create my workspace' : 'Let me in'}
             </button>
           </form>
         </div>
@@ -258,10 +258,10 @@ function Workspace({
             <OrganizationWorkspace key={activeOrganization.id} organization={activeOrganization} token={token} />
           ) : (
             <section className="empty-state">
-              <div className="empty-icon" aria-hidden="true">↗</div>
-              <p className="eyebrow">Your first workspace</p>
-              <h1>Create an organization</h1>
-              <p>An organization keeps one business and its financial records together. You can invite teammates and connect accounts later.</p>
+              <div className="empty-icon" aria-hidden="true">✦</div>
+              <p className="eyebrow">First things first</p>
+              <h1>Name your money HQ</h1>
+              <p>This is home base for one business and all its financial records. Make it yours.</p>
               <form className="organization-form" onSubmit={handleCreateOrganization}>
                 <Field label="Organization name" id="organizationName">
                   <input id="organizationName" required minLength={2} maxLength={100} value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} placeholder="Morgan Design Studio" autoFocus />
