@@ -26,6 +26,7 @@ Updated: 2026-09-22.
 - React and TypeScript registration/login screens, session restoration, sign-out, and organization creation/selection.
 - A responsive organization home with clear loading, empty, and API error states.
 - Customer creation/listing and invoice drafting with multiple lines, due dates, per-line tax previews, backend totals, detail views, and role-aware issuing.
+- A brighter visual system with playful colors, rounded type, outlined cards, offset shadows, friendly copy, and responsive layouts.
 
 ## What I've checked
 

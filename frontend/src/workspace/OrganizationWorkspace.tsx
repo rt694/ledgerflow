@@ -61,9 +61,9 @@ export function OrganizationWorkspace({ token, organization }: { token: string; 
     <section className="organization-home">
       <div className="welcome-row">
         <div>
-          <p className="eyebrow">Organization workspace</p>
+          <p className="eyebrow">Your money HQ ✦</p>
           <h1>{organization.name}</h1>
-          <p>Keep customers and invoices together, then follow each invoice as it moves through the accounting flow.</p>
+          <p>Customers, invoices, and money moves—all hanging out in one tidy place.</p>
         </div>
         <span className="role-badge">{formatRole(organization.role)}</span>
       </div>
@@ -121,28 +121,28 @@ function Overview({
     <div className="overview-stack">
       <div className="metric-grid">
         <article className="metric-card primary-metric">
-          <span>Open invoice total</span>
+          <span>Money on the way</span>
           <strong>{formatMoney(openTotal)}</strong>
-          <small>Issued and waiting for payment</small>
+          <small>Issued invoices waiting to land</small>
         </article>
         <button className="metric-card metric-button" onClick={onOpenInvoices} type="button">
           <span>Invoices</span>
           <strong>{invoices.length}</strong>
-          <small>View and create invoices →</small>
+          <small>Make some money mail →</small>
         </button>
         <button className="metric-card metric-button" onClick={onOpenCustomers} type="button">
           <span>Customers</span>
           <strong>{customers.length}</strong>
-          <small>View and add customers →</small>
+          <small>Meet the people you bill →</small>
         </button>
       </div>
 
       <article className="next-step-card">
         <div className="note-mark" aria-hidden="true">02</div>
         <div>
-          <p className="eyebrow">Current project step</p>
-          <h2>Build an invoice from a real customer record</h2>
-          <p>Add a customer, create line items, and let the backend calculate the final subtotal, tax, and total.</p>
+          <p className="eyebrow">Try this next</p>
+          <h2>Turn good work into an invoice</h2>
+          <p>Pick a customer, add what you did, and let LedgerFlow handle the number crunching.</p>
         </div>
         <button className="secondary-button" onClick={onOpenInvoices} type="button">Go to invoices</button>
       </article>
@@ -186,15 +186,15 @@ function CustomersSection({
 
   return (
     <div className="section-stack">
-      <SectionHeading title="Customers" description="Customer details are copied onto an invoice when it is issued, so the financial record stays stable.">
+      <SectionHeading title="Your customer crew" description="Keep the people you bill close by. Their details lock into place when an invoice is issued.">
         <button className="secondary-button" onClick={() => setShowForm((current) => !current)} type="button">{showForm ? 'Close form' : 'Add customer'}</button>
       </SectionHeading>
 
       {showForm && (
         <form className="panel-form customer-form" onSubmit={handleSubmit}>
           <div>
-            <p className="eyebrow">New customer</p>
-            <h3>Add someone you bill</h3>
+            <p className="eyebrow">New face</p>
+            <h3>Add someone to the crew</h3>
           </div>
           <FormField label="Customer name" id="customerName">
             <input id="customerName" required maxLength={200} value={name} onChange={(event) => setName(event.target.value)} placeholder="Northstar Coffee" autoFocus />
@@ -208,7 +208,7 @@ function CustomersSection({
       )}
 
       {customers.length === 0 ? (
-        <EmptyCollection title="No customers yet" detail="Add the first customer before creating an invoice." />
+        <EmptyCollection title="It’s quiet in here" detail="Add your first customer and give this list some company." />
       ) : (
         <div className="record-list">
           {customers.map((customer) => (
@@ -247,13 +247,13 @@ function InvoicesSection({
 
   return (
     <div className="section-stack">
-      <SectionHeading title="Invoices" description="Create a draft, review the backend-calculated totals, and issue it when it is ready.">
+      <SectionHeading title="Money mail" description="Build a draft, check the real backend totals, and lock it in when everything looks right.">
         <button className="secondary-button" onClick={() => setShowForm((current) => !current)} type="button">{showForm ? 'Close form' : 'New invoice'}</button>
       </SectionHeading>
 
       {showForm && customers.length === 0 && (
         <div className="action-empty">
-          <div><strong>Add a customer first</strong><p>Every invoice needs a customer record.</p></div>
+          <div><strong>This invoice needs a human</strong><p>Add a customer first, then come right back.</p></div>
           <button className="secondary-button" onClick={onNeedCustomer} type="button">Go to customers</button>
         </div>
       )}
@@ -274,7 +274,7 @@ function InvoicesSection({
       )}
 
       {invoices.length === 0 ? (
-        <EmptyCollection title="No invoices yet" detail="Create a draft invoice to start tracking money owed to the business." />
+        <EmptyCollection title="No money mail yet" detail="Create a draft invoice and start tracking what the business is owed." />
       ) : (
         <div className="invoice-layout">
           <div className="invoice-list" role="list" aria-label="Invoices">
@@ -357,7 +357,7 @@ function InvoiceForm({
   return (
     <form className="panel-form invoice-form" onSubmit={handleSubmit}>
       <div className="form-title-row">
-        <div><p className="eyebrow">New draft</p><h3>Create an invoice</h3></div>
+        <div><p className="eyebrow">Fresh draft ✦</p><h3>Make some money mail</h3></div>
         <button className="text-button" onClick={onCancel} type="button">Cancel</button>
       </div>
       <div className="invoice-fields">
