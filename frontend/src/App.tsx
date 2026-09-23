@@ -129,29 +129,29 @@ function AuthScreen({
       <section className="auth-story">
         <Brand />
         <div className="story-copy">
-          <p className="eyebrow">Your books, but way less boring</p>
-          <h1>Money stuff, finally making sense.</h1>
+          <p className="eyebrow">Bookkeeping with a clearer flow</p>
+          <h1>Financial records, finally making sense.</h1>
           <p className="story-intro">
-            Send invoices, follow payments, and keep your numbers tidy without losing the plot.
+            Create invoices, track payments, and keep your records organized in one clear workspace.
           </p>
           <div className="flow-preview" aria-label="LedgerFlow process">
-            <FlowStep number="01" title="Add it" detail="Customers and invoices" />
-            <FlowStep number="02" title="Match it" detail="Payments and bank activity" />
-            <FlowStep number="03" title="Get it" detail="Numbers you can explain" />
+            <FlowStep number="01" title="Create" detail="Customers and invoices" />
+            <FlowStep number="02" title="Reconcile" detail="Payments and bank activity" />
+            <FlowStep number="03" title="Understand" detail="Clear financial records" />
           </div>
         </div>
-        <p className="story-note">Made with curiosity, coffee, and a suspicious number of test invoices.</p>
+        <p className="story-note">A hands-on accounting platform built to make each financial step easier to understand.</p>
       </section>
 
       <section className="auth-panel">
         <div className="auth-card">
           <div className="auth-heading">
-            <p className="eyebrow">{mode === 'register' ? 'Let’s get rolling' : 'Hey, welcome back'}</p>
-            <h2>{mode === 'register' ? 'Build your money HQ' : 'Jump back in'}</h2>
+            <p className="eyebrow">{mode === 'register' ? 'Set up your workspace' : 'Welcome back'}</p>
+            <h2>{mode === 'register' ? 'Create your LedgerFlow account' : 'Sign in to continue'}</h2>
             <p>
               {mode === 'register'
-                ? 'Create an account, name your workspace, and make those numbers behave.'
-                : 'Your customers, invoices, and beautifully organized numbers missed you.'}
+                ? 'Create an account and organization to begin managing your financial records.'
+                : 'Access your customers, invoices, and organization records.'}
             </p>
           </div>
 
@@ -176,7 +176,7 @@ function AuthScreen({
             {error && <div className="error-message" role="alert">{error}</div>}
 
             <button className="primary-button" disabled={submitting} type="submit">
-              {submitting ? 'Doing the thing…' : mode === 'register' ? 'Create my workspace' : 'Let me in'}
+              {submitting ? 'Please wait…' : mode === 'register' ? 'Create workspace' : 'Sign in'}
             </button>
           </form>
         </div>
@@ -259,9 +259,9 @@ function Workspace({
           ) : (
             <section className="empty-state">
               <div className="empty-icon" aria-hidden="true">✦</div>
-              <p className="eyebrow">First things first</p>
-              <h1>Name your money HQ</h1>
-              <p>This is home base for one business and all its financial records. Make it yours.</p>
+              <p className="eyebrow">Start with an organization</p>
+              <h1>Create your organization</h1>
+              <p>An organization keeps one business and its financial records together in LedgerFlow.</p>
               <form className="organization-form" onSubmit={handleCreateOrganization}>
                 <Field label="Organization name" id="organizationName">
                   <input id="organizationName" required minLength={2} maxLength={100} value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} placeholder="Morgan Design Studio" autoFocus />
