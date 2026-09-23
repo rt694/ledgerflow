@@ -130,15 +130,10 @@ function AuthScreen({
         <Brand />
         <div className="story-copy">
           <p className="eyebrow">Bookkeeping with a clearer flow</p>
-          <h1>Financial records, finally making sense.</h1>
+          <h1>A clear approach to financial management.</h1>
           <p className="story-intro">
             Create invoices, track payments, and keep your records organized in one clear workspace.
           </p>
-          <div className="flow-preview" aria-label="LedgerFlow process">
-            <FlowStep number="01" title="Create" detail="Customers and invoices" />
-            <FlowStep number="02" title="Reconcile" detail="Payments and bank activity" />
-            <FlowStep number="03" title="Understand" detail="Clear financial records" />
-          </div>
         </div>
         <p className="story-note">A hands-on accounting platform built to make each financial step easier to understand.</p>
       </section>
@@ -279,10 +274,6 @@ function Workspace({
 
 function Brand() {
   return <a className="brand" href="/" aria-label="LedgerFlow home"><span className="brand-mark">L</span><span>LedgerFlow</span></a>
-}
-
-function FlowStep({ number, title, detail }: { number: string; title: string; detail: string }) {
-  return <div className="flow-step"><span>{number}</span><div><strong>{title}</strong><small>{detail}</small></div></div>
 }
 
 function Field({ label, id, hint, children }: { label: string; id: string; hint?: string; children: ReactNode }) {
